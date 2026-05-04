@@ -52,6 +52,28 @@ class StateTests(unittest.TestCase):
         self.assertIsNotNone(self.store.update_result(first))
         self.assertIsNotNone(self.store.update_result(second))
 
+    def test_delete_after_alert_marks_condition_done(self) -> None:
+        condition = Condition(
+            id="target",
+            type="price",
+            operator=">=",
+            target=100,
+            delete_after_alert=True,
+        )
+        result = ConditionResult(
+            self.stock,
+            condition,
+            True,
+            101,
+            100,
+            "target >= 100",
+            datetime(2026, 5, 4, tzinfo=timezone.utc),
+        )
+
+        self.assertIsNotNone(self.store.update_result(result))
+        self.assertTrue(self.store.is_done(result.state_key))
+        self.assertIsNone(self.store.update_result(result))
+
 
 if __name__ == "__main__":
     unittest.main()

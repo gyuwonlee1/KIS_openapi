@@ -30,6 +30,31 @@ class PortfolioTests(unittest.TestCase):
 
         self.assertEqual(len(stocks), 1)
         self.assertEqual(stocks[0].exchange, "NASD")
+        self.assertFalse(stocks[0].conditions[0].delete_after_alert)
+
+    def test_loads_delete_after_alert(self) -> None:
+        stocks = parse_portfolio(
+            {
+                "stocks": [
+                    {
+                        "name": "Samsung",
+                        "ticker": "005930",
+                        "market": "KR",
+                        "conditions": [
+                            {
+                                "id": "price",
+                                "type": "price",
+                                "operator": ">=",
+                                "target": 80000,
+                                "delete_after_alert": True,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        self.assertTrue(stocks[0].conditions[0].delete_after_alert)
 
     def test_rejects_invalid_operator(self) -> None:
         with self.assertRaises(ValueError):

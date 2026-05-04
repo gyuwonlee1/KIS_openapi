@@ -11,7 +11,8 @@
           "type": "price",
           "operator": ">=",
           "target": 80000,
-          "label": "목표가 도달"
+          "label": "목표가 도달",
+          "delete_after_alert": true
         },
         {
           "id": "samsung-sma20-up",

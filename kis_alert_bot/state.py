@@ -28,6 +28,9 @@ class AlertStateStore:
     def update_result(self, result: ConditionResult) -> Alert | None:
         key = result.state_key
         previous = self.data.get(key, {})
+        if bool(previous.get("done", False)):
+            return None
+
         was_matched = bool(previous.get("matched", False))
         last_alerted_at = _parse_datetime(previous.get("last_alerted_at"))
         should_alert = False
@@ -49,13 +52,23 @@ class AlertStateStore:
         }
         if should_alert:
             entry["last_alerted_at"] = result.evaluated_at.astimezone(timezone.utc).isoformat()
+            if result.condition.delete_after_alert:
+                entry["done"] = True
+                entry["completed_at"] = result.evaluated_at.astimezone(timezone.utc).isoformat()
         elif previous.get("last_alerted_at"):
             entry["last_alerted_at"] = previous["last_alerted_at"]
+        if previous.get("done"):
+            entry["done"] = previous["done"]
+        if previous.get("completed_at"):
+            entry["completed_at"] = previous["completed_at"]
 
         self.data[key] = entry
         if should_alert:
             return Alert(result=result, is_reentry=is_reentry)
         return None
+
+    def is_done(self, key: str) -> bool:
+        return bool(self.data.get(key, {}).get("done", False))
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

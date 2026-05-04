@@ -63,6 +63,7 @@ def build_alert_embed(alert: Alert) -> dict[str, Any]:
                 "inline": True,
             },
             {"name": "조건", "value": _condition_text(alert), "inline": False},
+            *_completion_field(alert),
             {"name": "감지 시각", "value": _format_kst(result.evaluated_at), "inline": False},
         ],
     }
@@ -125,6 +126,18 @@ def _condition_text(alert: Alert) -> str:
         threshold = _format_price(result.threshold, result.stock.market)
         return f"현재가가 {window}일 이동평균선({threshold}) {operator}일 때"
     return result.detail
+
+
+def _completion_field(alert: Alert) -> list[dict[str, Any]]:
+    if not alert.result.condition.delete_after_alert:
+        return []
+    return [
+        {
+            "name": "완료 처리",
+            "value": "이 조건은 1회 알림 후 완료 처리되었습니다.",
+            "inline": False,
+        }
+    ]
 
 
 def _operator_label(operator: str) -> str:

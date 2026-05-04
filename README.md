@@ -85,6 +85,18 @@
 
 `cooldown_minutes`는 선택 필드입니다. 조건이 계속 만족되는 동안에도 지정한 시간이 지나면 다시 알림을 보낼 수 있습니다. 값을 넣지 않으면 조건이 false가 되었다가 다시 true가 될 때만 재알림합니다.
 
+`delete_after_alert`도 선택 필드입니다. `true`로 설정하면 조건이 최초로 충족되어 알림을 보낸 뒤 상태 파일에 완료 처리되고, 이후 실행에서는 평가하지 않습니다.
+
+```json
+{
+  "id": "samsung-target-up",
+  "type": "price",
+  "operator": ">=",
+  "target": 80000,
+  "delete_after_alert": true
+}
+```
+
 ## GitHub Actions 설정
 
 Repository Secrets에 아래 값을 등록해야 합니다.
@@ -134,6 +146,30 @@ KIS_BASE_URL
 ## 다음 기능 방향
 
 설정 기능은 당분간 `portfolio.json`을 원본으로 유지하고, 웹 UI 또는 Discord 명령이 이 파일을 검증한 뒤 GitHub에 커밋하는 구조로 확장합니다.
+
+## 웹 설정 앱
+
+`web/` 디렉터리에 Next.js 기반 조건 설정 앱이 있습니다. Vercel에 배포할 때는 프로젝트 Root Directory를 `web`으로 지정합니다.
+
+필요한 Vercel 환경변수:
+
+```text
+ADMIN_PASSWORD
+GITHUB_TOKEN
+GITHUB_REPO=gyuwonlee1/KIS_openapi
+GITHUB_BRANCH=main
+```
+
+웹앱은 관리자 비밀번호로 로그인한 뒤 GitHub API로 `portfolio.json`을 읽고 저장합니다. 저장 전에는 봇과 같은 조건 규칙으로 검증합니다.
+
+웹앱에서 지원하는 작업:
+
+- 종목 추가/수정/삭제
+- 종목 활성화/비활성화
+- 가격 조건 추가/수정/삭제
+- 이동평균선 조건 추가/수정/삭제
+- 최초 알림 후 완료 처리 설정
+- 재알림 간격 설정
 
 추천 순서:
 

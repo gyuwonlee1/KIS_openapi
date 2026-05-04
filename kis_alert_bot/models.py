@@ -20,6 +20,7 @@ class Condition:
     target: float | None = None
     window: int | None = None
     cooldown_minutes: int | None = None
+    delete_after_alert: bool = False
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], stock_key: str, index: int) -> "Condition":
@@ -38,6 +39,7 @@ class Condition:
         target = _optional_float(data.get("target"), "target", errors)
         window = _optional_int(data.get("window"), "window", errors)
         cooldown = _optional_int(data.get("cooldown_minutes"), "cooldown_minutes", errors)
+        delete_after_alert = bool(data.get("delete_after_alert", False))
 
         if condition_type == "price" and target is None:
             errors.append("price condition requires target")
@@ -60,6 +62,7 @@ class Condition:
             target=target,
             window=window,
             cooldown_minutes=cooldown,
+            delete_after_alert=delete_after_alert,
         )
 
 

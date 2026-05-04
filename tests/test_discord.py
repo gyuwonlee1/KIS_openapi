@@ -66,6 +66,30 @@ class DiscordTests(unittest.TestCase):
         self.assertEqual(embed["title"], "KIS 알림 봇 오류")
         self.assertIn("외 2건", embed["description"])
 
+    def test_delete_after_alert_embed_mentions_completion(self) -> None:
+        stock = Stock(name="삼성전자", ticker="005930", market="KR")
+        condition = Condition(
+            id="target",
+            type="price",
+            operator=">=",
+            target=80000,
+            delete_after_alert=True,
+        )
+        result = ConditionResult(
+            stock=stock,
+            condition=condition,
+            matched=True,
+            current_price=81000,
+            threshold=80000,
+            detail="target >= 80000",
+            evaluated_at=datetime(2026, 5, 4, tzinfo=timezone.utc),
+        )
+
+        embed = build_alert_embed(Alert(result=result, is_reentry=False))
+
+        self.assertIn("완료 처리", [field["name"] for field in embed["fields"]])
+        self.assertIn("1회 알림 후 완료", str(embed["fields"]))
+
 
 if __name__ == "__main__":
     unittest.main()

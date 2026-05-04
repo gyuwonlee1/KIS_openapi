@@ -63,12 +63,21 @@ def run() -> int:
 
 
 def _evaluate_stock(client: KISClient, stock: Stock, state: AlertStateStore) -> list[Alert]:
+    active_conditions = [
+        condition
+        for condition in stock.conditions
+        if not state.is_done(f"{stock.key}:{condition.id}")
+    ]
+    if not active_conditions:
+        print(f"Skipping completed stock conditions: {stock.name} ({stock.ticker})")
+        return []
+
     quote = client.get_current_price(stock)
     daily_closes: list[float] | None = None
     now = datetime.now(timezone.utc)
     alerts: list[Alert] = []
 
-    for condition in stock.conditions:
+    for condition in active_conditions:
         if condition.type == "sma_cross" and daily_closes is None:
             daily_closes = client.get_daily_closes(stock)
         result = evaluate_condition(
