@@ -1,22 +1,6 @@
 {
   "stocks": [
     {
-      "name": "Intel Corporation",
-      "ticker": "INTC",
-      "market": "US",
-      "enabled": true,
-      "conditions": [
-        {
-          "id": "price-1da9ba4a-d072-461a-a5f7-8419a5783c2f",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 100
-        }
-      ],
-      "exchange": "NASD"
-    },
-    {
       "name": "Netflix, Inc.",
       "ticker": "NFLX",
       "market": "US",
