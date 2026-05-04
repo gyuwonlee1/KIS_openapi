@@ -1,0 +1,43 @@
+{
+  "stocks": [
+    {
+      "name": "Samsung Electronics",
+      "ticker": "005930",
+      "market": "KR",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "samsung-target-up",
+          "type": "price",
+          "operator": ">=",
+          "target": 80000,
+          "label": "Target price reached"
+        },
+        {
+          "id": "samsung-sma20-up",
+          "type": "sma_cross",
+          "operator": ">=",
+          "window": 20,
+          "label": "Current price above SMA20"
+        }
+      ]
+    },
+    {
+      "name": "Apple",
+      "ticker": "AAPL",
+      "market": "US",
+      "exchange": "NASD",
+      "enabled": false,
+      "conditions": [
+        {
+          "id": "apple-target-up",
+          "type": "price",
+          "operator": ">=",
+          "target": 220,
+          "label": "Target price reached",
+          "cooldown_minutes": 120
+        }
+      ]
+    }
+  ]
+}
