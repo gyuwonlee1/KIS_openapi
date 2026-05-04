@@ -10,16 +10,17 @@
           "id": "samsung-target-up",
           "type": "price",
           "operator": ">=",
-          "target": 80000,
+          "delete_after_alert": true,
           "label": "목표가 도달",
-          "delete_after_alert": true
+          "target": 80000
         },
         {
           "id": "samsung-sma20-up",
           "type": "sma_cross",
           "operator": ">=",
-          "window": 20,
-          "label": "20일 이동평균선 돌파"
+          "delete_after_alert": true,
+          "label": "20일 이동평균선 돌파",
+          "window": 20
         }
       ]
     },
@@ -27,16 +28,46 @@
       "name": "애플",
       "ticker": "AAPL",
       "market": "US",
-      "exchange": "NASD",
       "enabled": false,
       "conditions": [
         {
           "id": "apple-target-up",
           "type": "price",
           "operator": ">=",
-          "target": 220,
+          "delete_after_alert": true,
           "label": "목표가 도달",
-          "cooldown_minutes": 120
+          "target": 220
+        }
+      ],
+      "exchange": "NASD"
+    },
+    {
+      "name": "삼성전자",
+      "ticker": "005930",
+      "market": "KR",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "price-f497e4fd-8f02-4b3d-85d6-bb57f64c2657",
+          "type": "price",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "target": 0
+        }
+      ]
+    },
+    {
+      "name": "LG전자",
+      "ticker": "066570",
+      "market": "KR",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "sma_cross-8c01cd1b-7e2b-4f90-9a13-b2b5c17ed0e7",
+          "type": "sma_cross",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "window": 60
         }
       ]
     }
