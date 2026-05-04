@@ -1,21 +1,6 @@
 {
   "stocks": [
     {
-      "name": "삼성전자",
-      "ticker": "005930",
-      "market": "KR",
-      "enabled": true,
-      "conditions": [
-        {
-          "id": "price-1aed8590-7fc2-4b3d-af4c-d710801c0d6f",
-          "type": "price",
-          "operator": ">=",
-          "delete_after_alert": true,
-          "target": 0
-        }
-      ]
-    },
-    {
       "name": "Intel Corporation",
       "ticker": "INTC",
       "market": "US",
