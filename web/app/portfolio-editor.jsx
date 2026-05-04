@@ -3,11 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   SUPPORTED_OPERATORS,
+  SUPPORTED_SMA_WINDOWS,
+  conditionCore,
   createCondition,
-  createStock,
+  createStockFromSymbol,
   emptyPortfolio,
+  newConditionId,
   validatePortfolio,
 } from "@/lib/portfolio";
+
+const MARKET_LABELS = {
+  ALL: "전체",
+  KR: "국내",
+  US: "미국",
+};
 
 export default function PortfolioEditor() {
   const [authorized, setAuthorized] = useState(false);
@@ -53,7 +62,7 @@ export default function PortfolioEditor() {
     await fetch("/api/session", { method: "DELETE" });
     setAuthorized(false);
     setPortfolio(emptyPortfolio());
-    setStatus("로그아웃되었습니다.");
+    setStatus("로그아웃했습니다.");
   }
 
   async function loadPortfolio() {
@@ -76,7 +85,7 @@ export default function PortfolioEditor() {
     const currentErrors = validatePortfolio(portfolio);
     setErrors(currentErrors);
     if (currentErrors.length > 0) {
-      setStatus("저장 전 수정이 필요한 항목이 있습니다.");
+      setStatus("저장 전에 수정해야 할 항목이 있습니다.");
       return;
     }
     setStatus("GitHub에 저장 중입니다.");
@@ -99,6 +108,15 @@ export default function PortfolioEditor() {
     await loadPortfolio();
   }
 
+  function addStockFromSearch(symbol) {
+    const stock = createStockFromSymbol(symbol);
+    const nextIndex = portfolio.stocks.length;
+    setPortfolio((current) => ({ ...current, stocks: [...current.stocks, stock] }));
+    setSelectedIndex(nextIndex);
+    setErrors([]);
+    setStatus(`${stock.name}을(를) 관심 종목에 추가했습니다.`);
+  }
+
   function updateStock(patch) {
     setPortfolio((current) => ({
       ...current,
@@ -109,17 +127,18 @@ export default function PortfolioEditor() {
   }
 
   function updateCondition(conditionIndex, patch) {
+    const conditions = Array.isArray(selectedStock.conditions) ? selectedStock.conditions : [];
     updateStock({
-      conditions: selectedStock.conditions.map((condition, index) =>
-        index === conditionIndex ? normalizeConditionPatch(condition, patch) : condition,
-      ),
+      conditions: conditions.map((condition, index) => {
+        if (index !== conditionIndex) {
+          return sanitizeCondition(condition);
+        }
+        const replacement = patch.__replace ? patch.condition : { ...condition, ...patch };
+        const changed = conditionCore(replacement) !== conditionCore(condition);
+        const next = changed ? { ...replacement, id: newConditionId(replacement.type) } : replacement;
+        return sanitizeCondition(next);
+      }),
     });
-  }
-
-  function addStock() {
-    const stock = createStock();
-    setPortfolio((current) => ({ ...current, stocks: [...current.stocks, stock] }));
-    setSelectedIndex(portfolio.stocks.length);
   }
 
   function removeStock() {
@@ -131,12 +150,14 @@ export default function PortfolioEditor() {
   }
 
   function addCondition(type) {
-    updateStock({ conditions: [...selectedStock.conditions, createCondition(type)] });
+    const conditions = Array.isArray(selectedStock.conditions) ? selectedStock.conditions : [];
+    updateStock({ conditions: [...conditions.map(sanitizeCondition), createCondition(type)] });
   }
 
   function removeCondition(conditionIndex) {
+    const conditions = Array.isArray(selectedStock.conditions) ? selectedStock.conditions : [];
     updateStock({
-      conditions: selectedStock.conditions.filter((_, index) => index !== conditionIndex),
+      conditions: conditions.filter((_, index) => index !== conditionIndex).map(sanitizeCondition),
     });
   }
 
@@ -172,7 +193,7 @@ export default function PortfolioEditor() {
       <header className="topbar">
         <div className="brand">
           <h1>KIS 알림 설정</h1>
-          <span>portfolio.json 편집기</span>
+          <span>검색으로 종목을 추가하고, 1회성 알림 조건을 관리합니다.</span>
         </div>
         <div className="toolbar">
           <span className="status">{status}</span>
@@ -191,25 +212,27 @@ export default function PortfolioEditor() {
       <div className="layout">
         <section className="panel">
           <div className="panel-header">
-            <h2>종목</h2>
-            <button className="icon" type="button" title="종목 추가" onClick={addStock}>
-              +
-            </button>
+            <h2>종목 검색</h2>
+          </div>
+          <SymbolSearch onSelect={addStockFromSearch} />
+
+          <div className="panel-header subtle">
+            <h2>관심 종목</h2>
           </div>
           <div className="stock-list">
+            {portfolio.stocks.length === 0 ? (
+              <p className="empty">검색 결과에서 종목을 선택해 추가하세요.</p>
+            ) : null}
             {portfolio.stocks.map((stock, index) => (
               <button
                 className={`stock-row ${index === selectedIndex ? "active" : ""}`}
                 type="button"
-                key={`${stock.market}-${stock.ticker}-${index}`}
+                key={`${stock.market}-${stock.exchange || ""}-${stock.ticker}-${index}`}
                 onClick={() => setSelectedIndex(index)}
               >
                 <span className="stock-name">
                   <strong>{stock.name || "이름 없음"}</strong>
-                  <span className="meta">
-                    {stock.market} {stock.exchange ? `${stock.exchange} ` : ""}
-                    {stock.ticker || "티커 없음"}
-                  </span>
+                  <span className="meta">{formatStockMeta(stock)}</span>
                 </span>
                 <span className={`badge ${stock.enabled ? "enabled" : ""}`}>
                   {stock.enabled ? "활성" : "중지"}
@@ -221,7 +244,7 @@ export default function PortfolioEditor() {
 
         <section className="panel">
           <div className="panel-header">
-            <h2>조건 편집</h2>
+            <h2>알림 조건</h2>
             {selectedStock ? (
               <button className="danger" type="button" onClick={removeStock}>
                 종목 삭제
@@ -231,50 +254,20 @@ export default function PortfolioEditor() {
 
           {selectedStock ? (
             <div className="editor">
-              <div className="grid">
-                <label>
-                  종목명
-                  <input
-                    value={selectedStock.name}
-                    onChange={(event) => updateStock({ name: event.target.value })}
-                  />
-                </label>
-                <label>
-                  티커
-                  <input
-                    value={selectedStock.ticker}
-                    onChange={(event) => updateStock({ ticker: event.target.value.toUpperCase() })}
-                  />
-                </label>
-                <label>
-                  시장
-                  <select
-                    value={selectedStock.market}
-                    onChange={(event) =>
-                      updateStock({
-                        market: event.target.value,
-                        exchange: event.target.value === "US" ? selectedStock.exchange || "NASD" : undefined,
-                      })
-                    }
-                  >
-                    <option value="KR">국내</option>
-                    <option value="US">미국</option>
-                  </select>
-                </label>
-                {selectedStock.market === "US" ? (
-                  <label>
-                    거래소
-                    <select
-                      value={selectedStock.exchange || "NASD"}
-                      onChange={(event) => updateStock({ exchange: event.target.value })}
-                    >
-                      <option value="NASD">NASDAQ</option>
-                      <option value="NYSE">NYSE</option>
-                      <option value="AMEX">AMEX</option>
-                    </select>
-                  </label>
-                ) : null}
-              </div>
+              <section className="readonly-stock">
+                <div>
+                  <span className="field-label">선택한 종목</span>
+                  <strong>{selectedStock.name}</strong>
+                </div>
+                <div>
+                  <span className="field-label">티커</span>
+                  <strong>{selectedStock.ticker}</strong>
+                </div>
+                <div>
+                  <span className="field-label">시장</span>
+                  <strong>{formatMarket(selectedStock)}</strong>
+                </div>
+              </section>
 
               <label className="checkbox-row">
                 <input
@@ -282,23 +275,23 @@ export default function PortfolioEditor() {
                   checked={selectedStock.enabled}
                   onChange={(event) => updateStock({ enabled: event.target.checked })}
                 />
-                종목 활성화
+                이 종목 알림 활성화
               </label>
 
               <section className="conditions">
-                <div className="panel-header">
-                  <h3>알림 조건</h3>
+                <div className="panel-header inline">
+                  <h3>조건 목록</h3>
                   <div className="toolbar">
                     <button type="button" onClick={() => addCondition("price")}>
-                      가격 조건
+                      가격 조건 추가
                     </button>
                     <button type="button" onClick={() => addCondition("sma_cross")}>
-                      이동평균선 조건
+                      이동평균선 조건 추가
                     </button>
                   </div>
                 </div>
 
-                {selectedStock.conditions.map((condition, conditionIndex) => (
+                {(selectedStock.conditions || []).map((condition, conditionIndex) => (
                   <ConditionEditor
                     condition={condition}
                     key={`${condition.id}-${conditionIndex}`}
@@ -307,6 +300,8 @@ export default function PortfolioEditor() {
                   />
                 ))}
               </section>
+
+              <p className="hint">모든 조건은 최초 도달 시 한 번 알림을 보낸 뒤 자동 완료 처리됩니다.</p>
 
               {validationErrors.length > 0 || errors.length > 0 ? (
                 <div className="error-box">
@@ -321,9 +316,7 @@ export default function PortfolioEditor() {
             </div>
           ) : (
             <div className="editor">
-              <button className="primary" type="button" onClick={addStock}>
-                첫 종목 추가
-              </button>
+              <p className="empty">왼쪽에서 종목을 검색해 관심 종목에 추가하세요.</p>
             </div>
           )}
         </section>
@@ -332,24 +325,117 @@ export default function PortfolioEditor() {
   );
 }
 
+function SymbolSearch({ onSelect }) {
+  const [query, setQuery] = useState("");
+  const [market, setMarket] = useState("ALL");
+  const [results, setResults] = useState([]);
+  const [status, setStatus] = useState("종목명이나 티커를 입력하세요.");
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      setStatus("종목명이나 티커를 입력하세요.");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setStatus("검색 중입니다.");
+      const params = new URLSearchParams({ q });
+      if (market !== "ALL") {
+        params.set("market", market);
+      }
+      try {
+        const response = await fetch(`/api/symbols?${params.toString()}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          setStatus(data.error || "검색에 실패했습니다.");
+          setResults([]);
+          return;
+        }
+        setResults(data.symbols || []);
+        setStatus(data.symbols?.length ? `${data.symbols.length}개 종목을 찾았습니다.` : "검색 결과가 없습니다.");
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          setStatus("검색에 실패했습니다.");
+          setResults([]);
+        }
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [query, market]);
+
+  return (
+    <div className="symbol-search">
+      <div className="search-grid">
+        <label>
+          종목 검색
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="예: 삼성전자, Apple, AAPL"
+          />
+        </label>
+        <label>
+          시장
+          <select value={market} onChange={(event) => setMarket(event.target.value)}>
+            {Object.entries(MARKET_LABELS).map(([value, label]) => (
+              <option value={value} key={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className="status">{status}</p>
+      <div className="search-results">
+        {results.map((symbol) => (
+          <button
+            className="search-result"
+            type="button"
+            key={`${symbol.market}-${symbol.exchange || ""}-${symbol.ticker}`}
+            onClick={() => onSelect(symbol)}
+          >
+            <span>
+              <strong>{symbol.name}</strong>
+              <span className="meta">{formatSymbolMeta(symbol)}</span>
+            </span>
+            <span className="badge enabled">선택</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ConditionEditor({ condition, onChange, onRemove }) {
+  const type = condition.type === "sma_cross" ? "sma_cross" : "price";
+  const smaWindow = SUPPORTED_SMA_WINDOWS.includes(Number(condition.window)) ? Number(condition.window) : "";
+
   return (
     <div className="condition">
       <div className="condition-title">
-        <strong>{condition.type === "price" ? "가격 조건" : "이동평균선 조건"}</strong>
-        <button className="icon danger" type="button" title="조건 삭제" onClick={onRemove}>
-          ×
+        <strong>{type === "price" ? "가격 조건" : "이동평균선 조건"}</strong>
+        <button className="danger" type="button" onClick={onRemove}>
+          조건 삭제
         </button>
       </div>
 
       <div className="grid">
         <label>
-          조건 ID
-          <input value={condition.id} onChange={(event) => onChange({ id: event.target.value })} />
-        </label>
-        <label>
-          조건 유형
-          <select value={condition.type} onChange={(event) => onChange(createCondition(event.target.value))}>
+          조건 종류
+          <select
+            value={type}
+            onChange={(event) => onChange({ __replace: true, condition: createCondition(event.target.value) })}
+          >
             <option value="price">가격</option>
             <option value="sma_cross">이동평균선</option>
           </select>
@@ -364,7 +450,7 @@ function ConditionEditor({ condition, onChange, onRemove }) {
             ))}
           </select>
         </label>
-        {condition.type === "price" ? (
+        {type === "price" ? (
           <label>
             목표가
             <input
@@ -375,41 +461,51 @@ function ConditionEditor({ condition, onChange, onRemove }) {
           </label>
         ) : (
           <label>
-            이동평균 기간
-            <input
-              type="number"
-              min="1"
-              value={condition.window ?? ""}
-              onChange={(event) => onChange({ window: event.target.value })}
-            />
+            이동평균선
+            <select value={smaWindow} onChange={(event) => onChange({ window: event.target.value })}>
+              <option value="" disabled>
+                선택 필요
+              </option>
+              {SUPPORTED_SMA_WINDOWS.map((window) => (
+                <option value={window} key={window}>
+                  {window}일선
+                </option>
+              ))}
+            </select>
           </label>
         )}
-        <label>
-          재알림 간격
-          <input
-            type="number"
-            min="0"
-            value={condition.cooldown_minutes ?? ""}
-            onChange={(event) => onChange({ cooldown_minutes: event.target.value })}
-          />
-        </label>
       </div>
-
-      <label className="checkbox-row">
-        <input
-          type="checkbox"
-          checked={Boolean(condition.delete_after_alert)}
-          onChange={(event) => onChange({ delete_after_alert: event.target.checked })}
-        />
-        최초 알림 후 완료 처리
-      </label>
     </div>
   );
 }
 
-function normalizeConditionPatch(condition, patch) {
-  if (patch.type && patch.type !== condition.type) {
-    return { ...patch, id: condition.id, operator: condition.operator || ">=" };
+function sanitizeCondition(condition) {
+  const next = {
+    id: condition.id || newConditionId(condition.type),
+    type: condition.type,
+    operator: condition.operator || ">=",
+    delete_after_alert: true,
+  };
+  if (condition.type === "sma_cross") {
+    next.window = condition.window;
+  } else {
+    next.type = "price";
+    next.target = condition.target;
   }
-  return { ...condition, ...patch };
+  return next;
+}
+
+function formatStockMeta(stock) {
+  return `${formatMarket(stock)} ${stock.ticker}`;
+}
+
+function formatSymbolMeta(symbol) {
+  return `${formatMarket(symbol)} ${symbol.ticker}`;
+}
+
+function formatMarket(stock) {
+  if (stock.market === "KR") {
+    return stock.exchange ? `국내 ${stock.exchange}` : "국내";
+  }
+  return `${stock.exchange || "US"} 미국`;
 }

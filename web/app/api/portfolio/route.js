@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/auth";
 import { fetchPortfolio, savePortfolio } from "@/lib/github";
-import { validatePortfolio } from "@/lib/portfolio";
+import { validatePortfolioForSave } from "@/lib/portfolio-server";
 
 export async function GET(request) {
   if (!isAuthorized(request)) {
@@ -22,7 +22,7 @@ export async function PUT(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const errors = validatePortfolio(body.portfolio);
+  const errors = validatePortfolioForSave(body.portfolio);
   if (errors.length > 0) {
     return NextResponse.json({ errors }, { status: 400 });
   }

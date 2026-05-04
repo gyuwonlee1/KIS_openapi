@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 
 import {
+  SUPPORTED_SMA_WINDOWS,
   createCondition,
   normalizePortfolio,
   validatePortfolio,
 } from "../lib/portfolio.js";
+import { findSymbol, searchSymbols, validateSymbolsInPortfolio } from "../lib/symbols.js";
 
 function test(name, fn) {
   try {
@@ -57,7 +59,7 @@ test("rejects invalid operator and missing US exchange", () => {
   assert.ok(errors.some((error) => error.includes("operator")));
 });
 
-test("normalizes condition values before GitHub save", () => {
+test("normalizes every condition as one-shot and removes cooldown", () => {
   const normalized = normalizePortfolio({
     stocks: [
       {
@@ -73,21 +75,69 @@ test("normalizes condition values before GitHub save", () => {
             operator: ">=",
             window: "60",
             cooldown_minutes: "120",
-            delete_after_alert: true,
           },
         ],
       },
     ],
   });
 
+  const condition = normalized.stocks[0].conditions[0];
   assert.equal(normalized.stocks[0].ticker, "AAPL");
   assert.equal(normalized.stocks[0].exchange, "NASD");
-  assert.equal(normalized.stocks[0].conditions[0].window, 60);
-  assert.equal(normalized.stocks[0].conditions[0].delete_after_alert, true);
+  assert.equal(condition.window, 60);
+  assert.equal(condition.delete_after_alert, true);
+  assert.equal("cooldown_minutes" in condition, false);
 });
 
-test("creates a default SMA condition", () => {
+test("creates a default one-shot SMA condition", () => {
   const condition = createCondition("sma_cross");
   assert.equal(condition.type, "sma_cross");
   assert.equal(condition.window, 20);
+  assert.equal(condition.delete_after_alert, true);
+});
+
+test("allows only the supported SMA windows", () => {
+  assert.deepEqual(SUPPORTED_SMA_WINDOWS, [20, 60, 240, 480]);
+
+  const errors = validatePortfolio({
+    stocks: [
+      {
+        name: "삼성전자",
+        ticker: "005930",
+        market: "KR",
+        enabled: true,
+        conditions: [{ id: "sma", type: "sma_cross", operator: ">=", window: 5 }],
+      },
+    ],
+  });
+
+  assert.ok(errors.some((error) => error.includes("window")));
+});
+
+test("searches verified Korean and US symbols", () => {
+  const samsung = searchSymbols("삼성전자", "KR");
+  const apple = searchSymbols("AAPL", "US");
+
+  assert.equal(samsung[0].ticker, "005930");
+  assert.equal(apple[0].ticker, "AAPL");
+  assert.equal(apple[0].exchange, "NASD");
+});
+
+test("validates stocks against the symbol master", () => {
+  assert.ok(findSymbol({ market: "KR", ticker: "005930" }));
+  assert.ok(findSymbol({ market: "US", exchange: "NASD", ticker: "AAPL" }));
+
+  const errors = validateSymbolsInPortfolio({
+    stocks: [
+      {
+        name: "없는종목",
+        ticker: "999999",
+        market: "KR",
+        enabled: true,
+        conditions: [{ id: "target", type: "price", operator: ">=", target: 1000 }],
+      },
+    ],
+  });
+
+  assert.equal(errors.length, 1);
 });

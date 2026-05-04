@@ -155,6 +155,21 @@ label {
   border-bottom: 1px solid var(--line);
 }
 
+.panel-header.subtle {
+  border-top: 1px solid var(--line);
+}
+
+.panel-header.inline {
+  border: 0;
+  padding: 0;
+}
+
+.panel-header h1 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
 .panel-header h2,
 .panel-header h3 {
   margin: 0;
@@ -164,6 +179,13 @@ label {
 
 .stock-list {
   display: grid;
+}
+
+.empty {
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .stock-row {
@@ -216,6 +238,76 @@ label {
   padding: 16px;
 }
 
+.symbol-search {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.search-grid {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 10px;
+}
+
+.search-results {
+  display: grid;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.search-results:empty {
+  display: none;
+}
+
+.search-result {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: auto;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  text-align: left;
+}
+
+.search-result:last-child {
+  border-bottom: 0;
+}
+
+.search-result span:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.readonly-stock {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-weak);
+}
+
+.readonly-stock div {
+  display: grid;
+  gap: 5px;
+}
+
+.readonly-stock strong {
+  overflow-wrap: anywhere;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -247,6 +339,12 @@ label {
   background: var(--panel-weak);
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .condition-title {
@@ -304,6 +402,11 @@ label {
   }
 
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-grid,
+  .readonly-stock {
     grid-template-columns: 1fr;
   }
 }
