@@ -169,7 +169,7 @@ python tools\update_symbol_master.py
 
 ## Discord 자연어 조건 설정
 
-추가 예정 기능은 Discord Slash Command로 조건을 설정하는 것입니다.
+Discord Slash Command로 자연어 조건을 설정할 수 있습니다.
 
 예시:
 
@@ -178,7 +178,7 @@ python tools\update_symbol_master.py
 /알림 애플이 60일선 아래로 내려가면 알려줘
 ```
 
-구현 방향:
+동작 흐름:
 
 - Discord Interaction Webhook을 Vercel API Route로 수신
 - Gemini API Structured Outputs로 자연어를 조건 JSON으로 변환
@@ -219,16 +219,15 @@ npm run discord:register
 
 ## 향후 로드맵
 
-1. Discord 자연어 조건 설정
-   - Gemini-only 자연어 파서
-   - Discord Slash Command
-   - 저장 전 확인 버튼
-   - GitHub `portfolio.json` 저장
-
-2. 운영 가시성 개선
+1. 운영 가시성 개선
    - 웹앱에서 마지막 실행 시각 표시
    - 최근 알림 이력 표시
    - 최근 오류 요약 표시
+
+2. Discord 자연어 설정 고도화
+   - 종목 후보가 여러 개일 때 선택 버튼 제공
+   - 저장된 조건 목록 조회 명령 추가
+   - 조건 삭제 명령 추가
 
 3. Supabase 기반 다중 사용자 전환
    - Supabase Auth 도입
