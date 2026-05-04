@@ -155,15 +155,11 @@ test("searches verified Korean and US symbols", () => {
   assert.equal(apple[0].exchange, "NASD");
 });
 
-test("searches symbols with spacing, compact Korean aliases, and translated US names", () => {
-  assert.equal(searchSymbols("lg 전자", "KR")[0].ticker, "066570");
-  assert.equal(searchSymbols("엘지전자", "KR")[0].ticker, "066570");
-  assert.equal(searchSymbols("애플", "US")[0].ticker, "AAPL");
-  assert.equal(searchSymbols("구글", "US")[0].ticker, "GOOGL");
-  assert.equal(searchSymbols("테슬라", "US")[0].ticker, "TSLA");
-  assert.equal(searchSymbols("엔비디아", "US")[0].ticker, "NVDA");
-  assert.equal(searchSymbols("마이크로소프트", "US")[0].ticker, "MSFT");
+test("searches symbols with spacing and official ticker or company names", () => {
+  assert.equal(searchSymbols("LG전자", "KR")[0].ticker, "066570");
   assert.equal(searchSymbols("GOOGL", "US")[0].ticker, "GOOGL");
+  assert.equal(searchSymbols("Apple", "US")[0].ticker, "AAPL");
+  assert.equal(searchSymbols("Alphabet", "US")[0].ticker, "GOOGL");
 });
 
 test("validates stocks against the symbol master", () => {

@@ -173,13 +173,12 @@ export function formatConditionSummary(symbol, condition) {
 
 function resolveSymbol(parsed) {
   const marketHint = parsed?.market_hint;
-  const tickerHint = String(parsed?.ticker_hint || "").trim();
-  const directTickerCandidates = tickerHint ? exactTickerMatches(tickerHint, marketHint) : [];
-  if (directTickerCandidates.length === 1) {
-    return { ok: true, symbol: directTickerCandidates[0] };
+  const verifiedGeminiCandidates = verifyGeminiCandidates(parsed?.symbol_candidates);
+  if (verifiedGeminiCandidates.length === 1) {
+    return { ok: true, symbol: verifiedGeminiCandidates[0] };
   }
-  if (directTickerCandidates.length > 1) {
-    return needsSymbolSelection(directTickerCandidates);
+  if (verifiedGeminiCandidates.length > 1) {
+    return needsSymbolSelection(verifiedGeminiCandidates);
   }
 
   const matches = mergeMatches(
@@ -207,20 +206,46 @@ function resolveSymbol(parsed) {
 
 function stockQueries(parsed) {
   return [
-    parsed?.ticker_hint,
     parsed?.stock_query,
-    parsed?.company_name_hint,
+    ...(Array.isArray(parsed?.symbol_candidates)
+      ? parsed.symbol_candidates.flatMap((candidate) => [candidate?.ticker, candidate?.company_name])
+      : []),
   ]
     .map((value) => String(value || "").trim())
     .filter(Boolean)
     .filter((value, index, values) => values.indexOf(value) === index);
 }
 
-function exactTickerMatches(ticker, marketHint) {
-  const normalizedTicker = String(ticker || "").trim().toUpperCase();
-  return searchSymbolMatches(normalizedTicker, marketHint, 10)
-    .map((entry) => entry.symbol)
-    .filter((symbol) => symbol.ticker === normalizedTicker);
+function verifyGeminiCandidates(candidates) {
+  if (!Array.isArray(candidates)) {
+    return [];
+  }
+  const verified = [];
+  const seen = new Set();
+  candidates
+    .filter((candidate) => candidate && typeof candidate === "object")
+    .sort((left, right) => Number(right.confidence || 0) - Number(left.confidence || 0))
+    .forEach((candidate) => {
+      const ticker = String(candidate.ticker || "").trim().toUpperCase();
+      if (!ticker) {
+        return;
+      }
+      const symbol = findSymbol({
+        ticker,
+        market: candidate.market,
+        exchange: candidate.exchange,
+      });
+      if (!symbol) {
+        return;
+      }
+      const key = stockKey(symbol);
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      verified.push(symbol);
+    });
+  return verified;
 }
 
 function mergeMatches(matches) {

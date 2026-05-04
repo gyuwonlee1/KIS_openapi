@@ -25,7 +25,7 @@
 - 웹앱 종목 검색
   - 국내/미국 종목 마스터 JSON 기준
   - 종목명 또는 티커 검색
-  - 공백/기호 차이와 주요 한국어 별칭 검색 지원
+  - 공백/기호 차이를 줄인 공식명/티커 검색 지원
 - 웹앱 조건 설정
   - 가격 조건
   - 20/60/240/480일 이동평균선 조건
@@ -184,7 +184,7 @@ Discord Slash Command로 자연어 조건을 설정할 수 있습니다.
 - Discord Interaction Webhook을 Vercel API Route로 수신
 - Gemini API Structured Outputs로 자연어를 조건 JSON으로 변환
 - 기존 종목 마스터 JSON으로 종목 검증
-- 주요 한국어 별칭과 Gemini 티커 힌트로 미국 주식 후보 검색
+- Gemini가 추리한 종목 후보 티커를 공식 마스터 데이터로 검증
 - 후보가 여러 개이면 Discord 버튼으로 종목 선택
 - 저장 전 Discord 버튼으로 사용자 확인
 - 확인 시 기존 GitHub API 저장 흐름으로 `portfolio.json` 커밋

@@ -24,6 +24,7 @@ function test(name, fn) {
 test("resolves a Gemini price parse into a verified one-shot condition", () => {
   const resolved = resolveParsedAlert({
     stock_query: "삼성전자",
+    symbol_candidates: [{ ticker: "005930", market: "KR", exchange: "", company_name: "삼성전자", confidence: 0.96 }],
     market_hint: "KR",
     condition_type: "price",
     operator: ">=",
@@ -42,6 +43,7 @@ test("resolves a Gemini price parse into a verified one-shot condition", () => {
 test("requires a clear direction before saving natural language alerts", () => {
   const resolved = resolveParsedAlert({
     stock_query: "삼성전자",
+    symbol_candidates: [{ ticker: "005930", market: "KR", exchange: "", company_name: "삼성전자", confidence: 0.96 }],
     market_hint: "KR",
     condition_type: "sma_cross",
     operator: "",
@@ -58,6 +60,7 @@ test("requires a clear direction before saving natural language alerts", () => {
 test("encodes compact confirmation payloads and decodes verified symbols", () => {
   const resolved = resolveParsedAlert({
     stock_query: "AAPL",
+    symbol_candidates: [{ ticker: "AAPL", market: "US", exchange: "NASD", company_name: "Apple", confidence: 0.98 }],
     market_hint: "US",
     condition_type: "sma_cross",
     operator: "<=",
@@ -79,6 +82,7 @@ test("encodes compact confirmation payloads and decodes verified symbols", () =>
 test("applies a Discord condition to an existing portfolio stock", () => {
   const resolved = resolveParsedAlert({
     stock_query: "삼성전자",
+    symbol_candidates: [{ ticker: "005930", market: "KR", exchange: "", company_name: "삼성전자", confidence: 0.96 }],
     market_hint: "KR",
     condition_type: "price",
     operator: "<=",
@@ -110,6 +114,7 @@ test("applies a Discord condition to an existing portfolio stock", () => {
 test("formats a Korean confirmation summary", () => {
   const resolved = resolveParsedAlert({
     stock_query: "삼성전자",
+    symbol_candidates: [{ ticker: "005930", market: "KR", exchange: "", company_name: "삼성전자", confidence: 0.96 }],
     market_hint: "KR",
     condition_type: "price",
     operator: ">=",
@@ -125,11 +130,10 @@ test("formats a Korean confirmation summary", () => {
   );
 });
 
-test("uses Korean aliases to resolve US stocks without an exact English name", () => {
+test("uses Gemini symbol candidates to resolve US stocks without an exact English name", () => {
   const resolved = resolveParsedAlert({
     stock_query: "구글",
-    ticker_hint: "",
-    company_name_hint: "",
+    symbol_candidates: [{ ticker: "GOOGL", market: "US", exchange: "NASD", company_name: "Alphabet", confidence: 0.95 }],
     market_hint: "US",
     condition_type: "price",
     operator: "<=",
@@ -143,11 +147,13 @@ test("uses Korean aliases to resolve US stocks without an exact English name", (
   assert.equal(resolved.symbol.ticker, "GOOGL");
 });
 
-test("uses Gemini ticker hints only after symbol master verification", () => {
+test("uses Gemini symbol candidates only after symbol master verification", () => {
   const resolved = resolveParsedAlert({
     stock_query: "애플",
-    ticker_hint: "AAPL",
-    company_name_hint: "Apple",
+    symbol_candidates: [
+      { ticker: "NOTREAL", market: "US", exchange: "NASD", company_name: "Fake", confidence: 0.99 },
+      { ticker: "AAPL", market: "US", exchange: "NASD", company_name: "Apple", confidence: 0.95 },
+    ],
     market_hint: "US",
     condition_type: "sma_cross",
     operator: "<=",
@@ -165,8 +171,10 @@ test("uses Gemini ticker hints only after symbol master verification", () => {
 test("returns symbol selection candidates for ambiguous stock names", () => {
   const resolved = resolveParsedAlert({
     stock_query: "LG",
-    ticker_hint: "",
-    company_name_hint: "",
+    symbol_candidates: [
+      { ticker: "003550", market: "KR", exchange: "", company_name: "LG", confidence: 0.8 },
+      { ticker: "066570", market: "KR", exchange: "", company_name: "LG전자", confidence: 0.7 },
+    ],
     market_hint: "KR",
     condition_type: "sma_cross",
     operator: ">=",
@@ -185,8 +193,10 @@ test("returns symbol selection candidates for ambiguous stock names", () => {
 test("encodes symbol selection payloads and converts them into confirmation payloads", () => {
   const resolved = resolveParsedAlert({
     stock_query: "LG",
-    ticker_hint: "",
-    company_name_hint: "",
+    symbol_candidates: [
+      { ticker: "003550", market: "KR", exchange: "", company_name: "LG", confidence: 0.8 },
+      { ticker: "066570", market: "KR", exchange: "", company_name: "LG전자", confidence: 0.7 },
+    ],
     market_hint: "KR",
     condition_type: "sma_cross",
     operator: ">=",

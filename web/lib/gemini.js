@@ -7,13 +7,36 @@ export const NATURAL_ALERT_SCHEMA = {
       type: "string",
       description: "종목명 또는 티커. 예: 삼성전자, 애플, AAPL, 구글",
     },
-    ticker_hint: {
-      type: "string",
-      description: "알고 있는 경우 가능한 티커 후보. 예: 애플은 AAPL, 구글은 GOOGL. 모르면 빈 문자열.",
-    },
-    company_name_hint: {
-      type: "string",
-      description: "알고 있는 경우 공식 회사명 후보. 예: 애플은 Apple, 구글은 Alphabet. 모르면 빈 문자열.",
+    symbol_candidates: {
+      type: "array",
+      description: "사용자 문장의 한국어/영어 기업명을 보고 추리한 상장 종목 후보. 확실하지 않으면 여러 후보를 넣고, 모르면 빈 배열.",
+      items: {
+        type: "object",
+        properties: {
+          ticker: {
+            type: "string",
+            description: "상장 티커 또는 국내 6자리 종목코드. 예: AAPL, GOOGL, 066570.",
+          },
+          market: {
+            type: "string",
+            enum: ["", "KR", "US"],
+            description: "국내 종목이면 KR, 미국 종목이면 US. 모르면 빈 문자열.",
+          },
+          exchange: {
+            type: "string",
+            description: "미국 종목의 거래소 후보. NASD, NYSE, AMEX 중 알면 입력하고 모르면 빈 문자열.",
+          },
+          company_name: {
+            type: "string",
+            description: "후보 회사명. 예: Apple, Alphabet, LG전자.",
+          },
+          confidence: {
+            type: "number",
+            description: "0부터 1 사이의 주관적 확신도.",
+          },
+        },
+        required: ["ticker", "market", "exchange", "company_name", "confidence"],
+      },
     },
     market_hint: {
       type: "string",
@@ -49,8 +72,7 @@ export const NATURAL_ALERT_SCHEMA = {
   },
   required: [
     "stock_query",
-    "ticker_hint",
-    "company_name_hint",
+    "symbol_candidates",
     "market_hint",
     "condition_type",
     "operator",
@@ -106,9 +128,11 @@ function buildPrompt(text) {
 
 규칙:
 - 종목명 또는 티커를 stock_query에 넣는다.
-- 유명 미국 주식의 한국어 별칭을 알면 ticker_hint와 company_name_hint를 함께 채운다.
-- 예: 애플=AAPL/Apple, 구글=GOOGL/Alphabet, 테슬라=TSLA/Tesla, 엔비디아=NVDA/NVIDIA, 마이크로소프트=MSFT/Microsoft, 메타=META/Meta, 아마존=AMZN/Amazon.
-- ticker_hint는 확실히 아는 경우에만 채우고, 모르면 빈 문자열로 둔다.
+- 한국어 기업명 또는 별칭을 보고 가능한 상장 종목 후보를 symbol_candidates에 넣는다.
+- 예: 애플 -> AAPL/US/Apple, 구글 -> GOOGL 또는 GOOG/US/Alphabet, 테슬라 -> TSLA/US/Tesla, 엘지전자 -> 066570/KR/LG전자.
+- 후보가 여러 개일 수 있으면 최대 5개까지 넣는다. 예: LG -> LG, LG전자, LG화학 등.
+- 모르는 기업명이나 너무 추상적인 표현이면 symbol_candidates는 빈 배열로 둔다.
+- symbol_candidates는 추리일 뿐이며 최종 검증은 외부 종목 마스터에서 한다.
 - 국내/미국 시장이 명확히 언급되지 않으면 market_hint는 빈 문자열이다.
 - "이상", "넘으면", "돌파", "회복"은 operator ">="로 해석한다.
 - "이하", "아래", "하락", "깨지면", "내려가면"은 operator "<="로 해석한다.
