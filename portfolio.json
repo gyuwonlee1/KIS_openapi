@@ -46,6 +46,22 @@
         }
       ],
       "exchange": "NASD"
+    },
+    {
+      "name": "Netflix, Inc.",
+      "ticker": "NFLX",
+      "market": "US",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "sma_cross-9a553cbe-3c02-4d46-ab93-e53cae3495e6",
+          "type": "sma_cross",
+          "operator": "<=",
+          "delete_after_alert": true,
+          "window": 20
+        }
+      ],
+      "exchange": "NASD"
     }
   ]
 }
