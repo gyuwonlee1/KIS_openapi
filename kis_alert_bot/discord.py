@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from kis_alert_bot.models import Alert
 
@@ -9,6 +10,7 @@ from kis_alert_bot.models import Alert
 GREEN = 0x2ECC71
 RED = 0xE74C3C
 YELLOW = 0xF1C40F
+KST = ZoneInfo("Asia/Seoul")
 
 
 class DiscordNotifier:
@@ -38,22 +40,30 @@ class DiscordNotifier:
 def build_alert_embed(alert: Alert) -> dict[str, Any]:
     result = alert.result
     condition = result.condition
-    title = condition.label or condition.id
+    title = _alert_title(alert)
     color = GREEN if condition.operator == ">=" else RED
-    if alert.is_reentry:
-        title = f"{title} (re-entry)"
 
     timestamp = result.evaluated_at.astimezone(timezone.utc).isoformat()
     return {
         "title": title,
-        "description": f"{result.stock.name} `{result.stock.ticker}` matched `{condition.type}`",
+        "description": _alert_description(alert),
         "color": color,
         "timestamp": timestamp,
         "fields": [
-            {"name": "Market", "value": _market_label(result.stock), "inline": True},
-            {"name": "Current", "value": f"{result.current_price:g}", "inline": True},
-            {"name": "Threshold", "value": f"{result.threshold:g}", "inline": True},
-            {"name": "Condition", "value": result.detail, "inline": False},
+            {"name": "종목", "value": f"{result.stock.name} (`{result.stock.ticker}`)", "inline": True},
+            {"name": "시장", "value": _market_label(result.stock), "inline": True},
+            {
+                "name": "현재가",
+                "value": _format_price(result.current_price, result.stock.market),
+                "inline": True,
+            },
+            {
+                "name": "기준값",
+                "value": _format_price(result.threshold, result.stock.market),
+                "inline": True,
+            },
+            {"name": "조건", "value": _condition_text(alert), "inline": False},
+            {"name": "감지 시각", "value": _format_kst(result.evaluated_at), "inline": False},
         ],
     }
 
@@ -63,15 +73,75 @@ def build_error_embed(errors: list[str]) -> dict[str, Any]:
     extra_count = max(0, len(errors) - len(visible_errors))
     description = "\n".join(f"- {error}" for error in visible_errors)
     if extra_count:
-        description += f"\n- ... and {extra_count} more"
+        description += f"\n- 외 {extra_count}건"
     return {
-        "title": "KIS alert bot errors",
+        "title": "KIS 알림 봇 오류",
         "description": description,
         "color": YELLOW,
     }
 
 
 def _market_label(stock: Any) -> str:
+    if stock.market == "KR":
+        return "국내"
     if stock.market == "US" and stock.exchange:
-        return f"{stock.market}/{stock.exchange}"
+        return f"미국/{stock.exchange}"
     return stock.market
+
+
+def _alert_title(alert: Alert) -> str:
+    result = alert.result
+    condition = result.condition
+    prefix = f"{result.stock.name} "
+    suffix = " 재감지" if alert.is_reentry else ""
+
+    if condition.type == "price":
+        if condition.operator == ">=":
+            return f"{prefix}목표가 도달{suffix}"
+        return f"{prefix}하락 기준가 도달{suffix}"
+    if condition.type == "sma_cross":
+        window = condition.window or 0
+        action = "돌파" if condition.operator == ">=" else "이탈"
+        return f"{prefix}{window}일 이동평균선 {action}{suffix}"
+    return f"{prefix}알림 조건 충족{suffix}"
+
+
+def _alert_description(alert: Alert) -> str:
+    if alert.is_reentry:
+        return "조건을 벗어난 뒤 다시 충족되어 알림을 보냅니다."
+    return "설정한 조건을 충족해 알림을 보냅니다."
+
+
+def _condition_text(alert: Alert) -> str:
+    result = alert.result
+    condition = result.condition
+    operator = _operator_label(condition.operator)
+
+    if condition.type == "price":
+        threshold = _format_price(result.threshold, result.stock.market)
+        return f"현재가가 {threshold} {operator}일 때"
+    if condition.type == "sma_cross":
+        window = condition.window or 0
+        threshold = _format_price(result.threshold, result.stock.market)
+        return f"현재가가 {window}일 이동평균선({threshold}) {operator}일 때"
+    return result.detail
+
+
+def _operator_label(operator: str) -> str:
+    if operator == ">=":
+        return "이상"
+    if operator == "<=":
+        return "이하"
+    return operator
+
+
+def _format_price(value: float, market: str) -> str:
+    if market == "KR":
+        return f"{value:,.0f}원"
+    if market == "US":
+        return f"${value:,.2f}"
+    return f"{value:g}"
+
+
+def _format_kst(value: Any) -> str:
+    return value.astimezone(KST).strftime("%Y-%m-%d %H:%M:%S KST")

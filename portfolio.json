@@ -1,7 +1,7 @@
 {
   "stocks": [
     {
-      "name": "Samsung Electronics",
+      "name": "삼성전자",
       "ticker": "005930",
       "market": "KR",
       "enabled": true,
@@ -11,19 +11,19 @@
           "type": "price",
           "operator": ">=",
           "target": 80000,
-          "label": "Target price reached"
+          "label": "목표가 도달"
         },
         {
           "id": "samsung-sma20-up",
           "type": "sma_cross",
           "operator": ">=",
           "window": 20,
-          "label": "Current price above SMA20"
+          "label": "20일 이동평균선 돌파"
         }
       ]
     },
     {
-      "name": "Apple",
+      "name": "애플",
       "ticker": "AAPL",
       "market": "US",
       "exchange": "NASD",
@@ -34,7 +34,7 @@
           "type": "price",
           "operator": ">=",
           "target": 220,
-          "label": "Target price reached",
+          "label": "목표가 도달",
           "cooldown_minutes": 120
         }
       ]
