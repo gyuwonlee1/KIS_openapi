@@ -5,15 +5,7 @@
       "ticker": "GOOGL",
       "market": "US",
       "enabled": true,
-      "conditions": [
-        {
-          "id": "price-a95d3756-5aaf-4afb-ba11-f222ee54eb03",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 400
-        }
-      ],
+      "conditions": [],
       "exchange": "NASD"
     }
   ]
