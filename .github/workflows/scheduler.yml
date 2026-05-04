@@ -14,6 +14,9 @@ on:
           - "true"
           - "false"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   run-alert-bot:
     runs-on: ubuntu-latest
@@ -41,6 +44,9 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m unittest discover -s tests
 
       - name: Run alert bot
         env:
