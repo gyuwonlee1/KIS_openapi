@@ -29,6 +29,22 @@
           "window": 20
         }
       ]
+    },
+    {
+      "name": "Rocket Lab Corporation",
+      "ticker": "RKLB",
+      "market": "US",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "price-6d43cb6d-e616-46d6-8c7c-1999fa69751a",
+          "type": "price",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "target": 100
+        }
+      ],
+      "exchange": "NASD"
     }
   ]
 }
