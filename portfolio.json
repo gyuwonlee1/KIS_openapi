@@ -7,21 +7,6 @@
       "enabled": true,
       "conditions": [],
       "exchange": "NASD"
-    },
-    {
-      "name": "삼성전자",
-      "ticker": "005930",
-      "market": "KR",
-      "enabled": true,
-      "conditions": [
-        {
-          "id": "price-db8acdc2-fa4e-4f95-8f11-8cad07344d7d",
-          "type": "price",
-          "operator": ">=",
-          "delete_after_alert": true,
-          "target": 80000
-        }
-      ]
     }
   ]
 }
