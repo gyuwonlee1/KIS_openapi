@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   SUPPORTED_OPERATORS,
   SUPPORTED_SMA_WINDOWS,
-  conditionCore,
   createCondition,
   createStockFromSymbol,
   emptyPortfolio,
-  newConditionId,
+  updateConditionDraft,
   validatePortfolio,
 } from "@/lib/portfolio";
 
@@ -81,8 +80,12 @@ export default function PortfolioEditor() {
     setStatus(`${data.repo} ${data.branch} 브랜치에서 불러왔습니다.`);
   }
 
-  async function savePortfolio() {
-    const currentErrors = validatePortfolio(portfolio);
+  async function savePortfolio(message = "Update portfolio from web editor") {
+    await savePortfolioSnapshot(portfolio, message);
+  }
+
+  async function savePortfolioSnapshot(nextPortfolio, message) {
+    const currentErrors = validatePortfolio(nextPortfolio);
     setErrors(currentErrors);
     if (currentErrors.length > 0) {
       setStatus("저장 전에 수정해야 할 항목이 있습니다.");
@@ -92,11 +95,7 @@ export default function PortfolioEditor() {
     const response = await fetch("/api/portfolio", {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        portfolio,
-        sha,
-        message: "Update portfolio from web editor",
-      }),
+      body: JSON.stringify({ portfolio: nextPortfolio, sha, message }),
     });
     const data = await response.json();
     if (!response.ok) {
@@ -131,33 +130,37 @@ export default function PortfolioEditor() {
     updateStock({
       conditions: conditions.map((condition, index) => {
         if (index !== conditionIndex) {
-          return sanitizeCondition(condition);
+          return updateConditionDraft(condition, {});
         }
-        const replacement = patch.__replace ? patch.condition : { ...condition, ...patch };
-        const changed = conditionCore(replacement) !== conditionCore(condition);
-        const next = changed ? { ...replacement, id: newConditionId(replacement.type) } : replacement;
-        return sanitizeCondition(next);
+        if (patch.__replace) {
+          return updateConditionDraft(patch.condition, {});
+        }
+        return updateConditionDraft(condition, patch);
       }),
     });
   }
 
   function removeStock() {
-    setPortfolio((current) => ({
-      ...current,
-      stocks: current.stocks.filter((_, index) => index !== selectedIndex),
-    }));
+    const nextPortfolio = {
+      ...portfolio,
+      stocks: portfolio.stocks.filter((_, index) => index !== selectedIndex),
+    };
+    setPortfolio(nextPortfolio);
     setSelectedIndex(Math.max(0, selectedIndex - 1));
+    void savePortfolioSnapshot(nextPortfolio, "Remove stock from web editor");
   }
 
   function addCondition(type) {
     const conditions = Array.isArray(selectedStock.conditions) ? selectedStock.conditions : [];
-    updateStock({ conditions: [...conditions.map(sanitizeCondition), createCondition(type)] });
+    updateStock({ conditions: [...conditions.map((condition) => updateConditionDraft(condition, {})), createCondition(type)] });
   }
 
   function removeCondition(conditionIndex) {
     const conditions = Array.isArray(selectedStock.conditions) ? selectedStock.conditions : [];
     updateStock({
-      conditions: conditions.filter((_, index) => index !== conditionIndex).map(sanitizeCondition),
+      conditions: conditions
+        .filter((_, index) => index !== conditionIndex)
+        .map((condition) => updateConditionDraft(condition, {})),
     });
   }
 
@@ -199,9 +202,6 @@ export default function PortfolioEditor() {
           <span className="status">{status}</span>
           <button type="button" onClick={loadPortfolio}>
             새로고침
-          </button>
-          <button className="primary" type="button" onClick={savePortfolio}>
-            저장
           </button>
           <button type="button" onClick={logout}>
             로그아웃
@@ -246,9 +246,18 @@ export default function PortfolioEditor() {
           <div className="panel-header">
             <h2>알림 조건</h2>
             {selectedStock ? (
-              <button className="danger" type="button" onClick={removeStock}>
-                종목 삭제
-              </button>
+              <div className="toolbar">
+                <button
+                  className="primary"
+                  type="button"
+                  onClick={() => savePortfolio(`Update ${selectedStock.name} conditions from web editor`)}
+                >
+                  이 종목 저장
+                </button>
+                <button className="danger" type="button" onClick={removeStock}>
+                  종목 삭제
+                </button>
+              </div>
             ) : null}
           </div>
 
@@ -299,9 +308,12 @@ export default function PortfolioEditor() {
                     onRemove={() => removeCondition(conditionIndex)}
                   />
                 ))}
+                {(selectedStock.conditions || []).length === 0 ? (
+                  <p className="empty">설정된 조건이 없습니다. 필요한 조건을 추가하세요.</p>
+                ) : null}
               </section>
 
-              <p className="hint">모든 조건은 최초 도달 시 한 번 알림을 보낸 뒤 자동 완료 처리됩니다.</p>
+              <p className="hint">모든 조건은 최초 도달 시 한 번 알림을 보낸 뒤 자동 삭제됩니다.</p>
 
               {validationErrors.length > 0 || errors.length > 0 ? (
                 <div className="error-box">
@@ -477,22 +489,6 @@ function ConditionEditor({ condition, onChange, onRemove }) {
       </div>
     </div>
   );
-}
-
-function sanitizeCondition(condition) {
-  const next = {
-    id: condition.id || newConditionId(condition.type),
-    type: condition.type,
-    operator: condition.operator || ">=",
-    delete_after_alert: true,
-  };
-  if (condition.type === "sma_cross") {
-    next.window = condition.window;
-  } else {
-    next.type = "price";
-    next.target = condition.target;
-  }
-  return next;
 }
 
 function formatStockMeta(stock) {

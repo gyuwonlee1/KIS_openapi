@@ -21,7 +21,7 @@ jobs:
   run-alert-bot:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       actions: write
 
     steps:
@@ -58,3 +58,17 @@ jobs:
           STATE_PATH: .cache/kis-alerts/last_alerts.json
           MARKET_HOURS_ENABLED: ${{ github.event_name == 'workflow_dispatch' && inputs.market_hours_enabled || 'true' }}
         run: python main.py
+
+      - name: Commit completed condition removals
+        if: always()
+        run: |
+          if git diff --quiet -- portfolio.json; then
+            echo "No completed conditions to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add portfolio.json
+          git commit -m "Remove completed alert conditions"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

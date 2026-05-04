@@ -71,6 +71,22 @@ export function conditionCore(condition) {
   return `${condition.type}:${condition.operator}:${Number(condition.target)}`;
 }
 
+export function updateConditionDraft(condition, patch) {
+  const merged = { ...condition, ...patch };
+  const next = {
+    id: String(merged.id || newConditionId(merged.type || "condition")).trim(),
+    type: merged.type === "sma_cross" ? "sma_cross" : "price",
+    operator: merged.operator || ">=",
+    delete_after_alert: true,
+  };
+  if (next.type === "sma_cross") {
+    next.window = merged.window;
+  } else {
+    next.target = merged.target;
+  }
+  return next;
+}
+
 export function validatePortfolio(portfolio) {
   const errors = [];
   if (!portfolio || typeof portfolio !== "object" || Array.isArray(portfolio)) {
@@ -104,12 +120,13 @@ export function validatePortfolio(portfolio) {
 export function normalizePortfolio(portfolio) {
   return {
     stocks: portfolio.stocks.map((stock) => {
+      const conditions = Array.isArray(stock.conditions) ? stock.conditions : [];
       const next = {
         name: String(stock.name || "").trim(),
         ticker: String(stock.ticker || "").trim().toUpperCase(),
         market: String(stock.market || "").trim().toUpperCase(),
         enabled: Boolean(stock.enabled),
-        conditions: stock.conditions.map(normalizeCondition),
+        conditions: conditions.map(normalizeCondition),
       };
       if (next.market === "US") {
         next.exchange = normalizeUsExchange(stock.exchange || "");
@@ -168,8 +185,8 @@ function validateStock(stock, prefix, errors) {
   if (exchange && !SUPPORTED_US_EXCHANGES.includes(exchange)) {
     errors.push(`${prefix}.exchange is unsupported`);
   }
-  if (!Array.isArray(stock.conditions) || stock.conditions.length === 0) {
-    errors.push(`${prefix}.conditions must be a non-empty array`);
+  if (!Array.isArray(stock.conditions)) {
+    errors.push(`${prefix}.conditions must be an array`);
     return;
   }
   stock.conditions.forEach((condition, conditionIndex) => {

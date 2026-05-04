@@ -8,7 +8,7 @@ from kis_alert_bot.discord import DiscordNotifier
 from kis_alert_bot.kis_client import KISClient
 from kis_alert_bot.market_hours import is_market_open
 from kis_alert_bot.models import Alert, Stock
-from kis_alert_bot.portfolio import load_portfolio
+from kis_alert_bot.portfolio import load_portfolio, remove_alerted_conditions
 from kis_alert_bot.state import AlertStateStore
 
 
@@ -45,8 +45,11 @@ def run() -> int:
             except Exception as exc:
                 errors.append(f"{stock.name} ({stock.ticker}): {exc}")
 
-        state.save()
         notifier.send_alerts(alerts)
+        removed_conditions = remove_alerted_conditions(settings.portfolio_path, alerts)
+        if removed_conditions:
+            print(f"Removed {removed_conditions} completed conditions from {settings.portfolio_path}")
+        state.save()
         notifier.send_error_summary(errors)
         print(f"Completed run: {len(alerts)} alerts, {len(errors)} errors")
     except Exception as exc:

@@ -103,8 +103,8 @@ class Stock:
             errors.append(f"unsupported US exchange: {exchange_value}")
 
         condition_items = data.get("conditions")
-        if not isinstance(condition_items, list) or not condition_items:
-            errors.append("conditions must be a non-empty list")
+        if not isinstance(condition_items, list):
+            errors.append("conditions must be a list")
 
         if errors:
             raise ValueError(f"invalid stock at index {index}: {'; '.join(errors)}")

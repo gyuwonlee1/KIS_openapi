@@ -4,6 +4,7 @@ import {
   SUPPORTED_SMA_WINDOWS,
   createCondition,
   normalizePortfolio,
+  updateConditionDraft,
   validatePortfolio,
 } from "../lib/portfolio.js";
 import { findSymbol, searchSymbols, validateSymbolsInPortfolio } from "../lib/symbols.js";
@@ -35,6 +36,22 @@ test("validates a portfolio with one-shot price condition", () => {
             delete_after_alert: true,
           },
         ],
+      },
+    ],
+  });
+
+  assert.deepEqual(errors, []);
+});
+
+test("allows a verified stock without conditions", () => {
+  const errors = validatePortfolio({
+    stocks: [
+      {
+        name: "삼성전자",
+        ticker: "005930",
+        market: "KR",
+        enabled: true,
+        conditions: [],
       },
     ],
   });
@@ -94,6 +111,21 @@ test("creates a default one-shot SMA condition", () => {
   assert.equal(condition.type, "sma_cross");
   assert.equal(condition.window, 20);
   assert.equal(condition.delete_after_alert, true);
+});
+
+test("keeps condition id while editing numeric target drafts", () => {
+  const condition = {
+    id: "target",
+    type: "price",
+    operator: ">=",
+    target: "1",
+    delete_after_alert: true,
+  };
+
+  const updated = updateConditionDraft(condition, { target: "12" });
+
+  assert.equal(updated.id, "target");
+  assert.equal(updated.target, "12");
 });
 
 test("allows only the supported SMA windows", () => {
