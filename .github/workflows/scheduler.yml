@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      market_hours_enabled:
+        description: "Only check stocks during configured market hours"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 jobs:
   run-alert-bot:
@@ -41,4 +50,5 @@ jobs:
           KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
           PORTFOLIO_PATH: portfolio.json
           STATE_PATH: .cache/kis-alerts/last_alerts.json
+          MARKET_HOURS_ENABLED: ${{ github.event_name == 'workflow_dispatch' && inputs.market_hours_enabled || 'true' }}
         run: python main.py

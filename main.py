@@ -31,12 +31,16 @@ def run() -> int:
             timeout_seconds=settings.http_timeout_seconds,
         )
 
+        print(f"Loaded {len(stocks)} stocks from {settings.portfolio_path}")
         for stock in stocks:
             if not stock.enabled:
+                print(f"Skipping disabled stock: {stock.name} ({stock.ticker})")
                 continue
             if settings.market_hours_enabled and not is_market_open(stock):
+                print(f"Skipping outside market hours: {stock.name} ({stock.ticker})")
                 continue
             try:
+                print(f"Evaluating stock: {stock.name} ({stock.ticker})")
                 alerts.extend(_evaluate_stock(client, stock, state))
             except Exception as exc:
                 errors.append(f"{stock.name} ({stock.ticker}): {exc}")
@@ -44,6 +48,7 @@ def run() -> int:
         state.save()
         notifier.send_alerts(alerts)
         notifier.send_error_summary(errors)
+        print(f"Completed run: {len(alerts)} alerts, {len(errors)} errors")
     except Exception as exc:
         errors.append(str(exc))
         if notifier is not None:
