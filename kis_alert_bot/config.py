@@ -18,6 +18,7 @@ class Settings:
     base_url: str = "https://openapi.koreainvestment.com:9443"
     portfolio_path: str = "portfolio.json"
     state_path: str = ".cache/kis-alerts/last_alerts.json"
+    token_cache_path: str = ".cache/kis-alerts/kis_token.json"
     market_hours_enabled: bool = True
     min_interval_seconds: float = 0.2
     overseas_interval_seconds: float = 1.0
@@ -36,6 +37,7 @@ class Settings:
             base_url=_string_env("KIS_BASE_URL", cls.base_url).rstrip("/"),
             portfolio_path=_string_env("PORTFOLIO_PATH", cls.portfolio_path),
             state_path=_string_env("STATE_PATH", cls.state_path),
+            token_cache_path=_string_env("KIS_TOKEN_CACHE_PATH", cls.token_cache_path),
             market_hours_enabled=_bool_env("MARKET_HOURS_ENABLED", True),
             min_interval_seconds=_float_env("KIS_MIN_INTERVAL_SECONDS", 0.2),
             overseas_interval_seconds=_float_env("KIS_OVERSEAS_INTERVAL_SECONDS", 1.0),

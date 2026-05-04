@@ -29,6 +29,7 @@ def run() -> int:
             min_interval_seconds=settings.min_interval_seconds,
             overseas_interval_seconds=settings.overseas_interval_seconds,
             timeout_seconds=settings.http_timeout_seconds,
+            token_cache_path=settings.token_cache_path,
         )
 
         print(f"Loaded {len(stocks)} stocks from {settings.portfolio_path}")
