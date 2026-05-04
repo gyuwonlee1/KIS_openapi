@@ -1,0 +1,44 @@
+name: KIS Stock Alert Bot
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  run-alert-bot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Restore alert state
+        uses: actions/cache@v4
+        with:
+          path: .cache/kis-alerts
+          key: kis-alerts-${{ github.run_id }}
+          restore-keys: |
+            kis-alerts-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run alert bot
+        env:
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          KIS_BASE_URL: ${{ secrets.KIS_BASE_URL }}
+          PORTFOLIO_PATH: portfolio.json
+          STATE_PATH: .cache/kis-alerts/last_alerts.json
+        run: python main.py
