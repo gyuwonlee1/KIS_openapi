@@ -7,14 +7,29 @@
       "enabled": true,
       "conditions": [
         {
-          "id": "price-29d5ec46-1c5b-47a7-8fff-3596629d3d86",
+          "id": "price-45c5c9e6-75eb-4568-8322-d26131851bce",
           "type": "price",
-          "operator": ">=",
+          "operator": "<=",
           "delete_after_alert": true,
-          "target": 382
+          "target": 400
         }
       ],
       "exchange": "NASD"
+    },
+    {
+      "name": "삼성전자",
+      "ticker": "005930",
+      "market": "KR",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "price-1aed8590-7fc2-4b3d-af4c-d710801c0d6f",
+          "type": "price",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "target": 0
+        }
+      ]
     }
   ]
 }
