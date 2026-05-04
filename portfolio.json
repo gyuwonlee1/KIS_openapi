@@ -1,22 +1,6 @@
 {
   "stocks": [
     {
-      "name": "Alphabet Inc.",
-      "ticker": "GOOGL",
-      "market": "US",
-      "enabled": true,
-      "conditions": [
-        {
-          "id": "price-45c5c9e6-75eb-4568-8322-d26131851bce",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 400
-        }
-      ],
-      "exchange": "NASD"
-    },
-    {
       "name": "삼성전자",
       "ticker": "005930",
       "market": "KR",
