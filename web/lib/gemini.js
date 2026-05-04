@@ -7,6 +7,14 @@ export const NATURAL_ALERT_SCHEMA = {
       type: "string",
       description: "종목명 또는 티커. 예: 삼성전자, 애플, AAPL, 구글",
     },
+    ticker_hint: {
+      type: "string",
+      description: "알고 있는 경우 가능한 티커 후보. 예: 애플은 AAPL, 구글은 GOOGL. 모르면 빈 문자열.",
+    },
+    company_name_hint: {
+      type: "string",
+      description: "알고 있는 경우 공식 회사명 후보. 예: 애플은 Apple, 구글은 Alphabet. 모르면 빈 문자열.",
+    },
     market_hint: {
       type: "string",
       enum: ["", "KR", "US"],
@@ -41,6 +49,8 @@ export const NATURAL_ALERT_SCHEMA = {
   },
   required: [
     "stock_query",
+    "ticker_hint",
+    "company_name_hint",
     "market_hint",
     "condition_type",
     "operator",
@@ -96,6 +106,9 @@ function buildPrompt(text) {
 
 규칙:
 - 종목명 또는 티커를 stock_query에 넣는다.
+- 유명 미국 주식의 한국어 별칭을 알면 ticker_hint와 company_name_hint를 함께 채운다.
+- 예: 애플=AAPL/Apple, 구글=GOOGL/Alphabet, 테슬라=TSLA/Tesla, 엔비디아=NVDA/NVIDIA, 마이크로소프트=MSFT/Microsoft, 메타=META/Meta, 아마존=AMZN/Amazon.
+- ticker_hint는 확실히 아는 경우에만 채우고, 모르면 빈 문자열로 둔다.
 - 국내/미국 시장이 명확히 언급되지 않으면 market_hint는 빈 문자열이다.
 - "이상", "넘으면", "돌파", "회복"은 operator ">="로 해석한다.
 - "이하", "아래", "하락", "깨지면", "내려가면"은 operator "<="로 해석한다.

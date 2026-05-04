@@ -4,20 +4,24 @@ import {
   normalizePortfolio,
   validatePortfolio,
 } from "./portfolio.js";
-import { findSymbol, searchSymbols, validateSymbolsInPortfolio } from "./symbols.js";
+import {
+  findSymbol,
+  searchSymbolMatches,
+  validateSymbolsInPortfolio,
+} from "./symbols.js";
 
 const CONFIRM_PREFIX = "kisac:";
+const SELECT_PREFIX = "kissel:";
 const CANCEL_PREFIX = "kis_alert_cancel";
 
 export function resolveParsedAlert(parsed) {
-  const stockQuery = String(parsed?.stock_query || "").trim();
   const conditionType = String(parsed?.condition_type || "").trim();
   const operator = String(parsed?.operator || "").trim();
 
   if (parsed?.needs_clarification) {
     return failure(parsed.clarification_reason || "조건을 저장하기 위한 정보가 부족합니다.");
   }
-  if (!stockQuery) {
+  if (!stockQueries(parsed).length) {
     return failure("종목명을 찾지 못했습니다. 예: 삼성전자 8만원 이상");
   }
   if (!["price", "sma_cross"].includes(conditionType)) {
@@ -27,14 +31,20 @@ export function resolveParsedAlert(parsed) {
     return failure("조건 방향을 확인해 주세요. 이상인지 이하인지 함께 입력해 주세요.");
   }
 
-  const symbolResult = resolveSymbol(stockQuery, parsed?.market_hint);
-  if (!symbolResult.ok) {
-    return symbolResult;
-  }
-
   const condition = buildCondition(parsed, conditionType, operator);
   if (!condition.ok) {
     return condition;
+  }
+
+  const symbolResult = resolveSymbol(parsed);
+  if (!symbolResult.ok) {
+    if (symbolResult.needsSymbolSelection) {
+      return {
+        ...symbolResult,
+        condition: condition.condition,
+      };
+    }
+    return symbolResult;
   }
 
   return {
@@ -82,46 +92,23 @@ export function applyConditionToPortfolio(portfolio, symbol, condition) {
 }
 
 export function encodeConfirmId(symbol, condition) {
-  const operator = condition.operator === ">=" ? "gte" : "lte";
-  const value = condition.type === "price" ? condition.target : condition.window;
-  return [
-    CONFIRM_PREFIX,
-    symbol.market,
-    symbol.exchange || "",
-    symbol.ticker,
-    condition.type,
-    operator,
-    value,
-  ].join("|");
+  return encodeActionId(CONFIRM_PREFIX, symbol, condition);
 }
 
 export function decodeConfirmId(customId) {
-  if (!String(customId || "").startsWith(CONFIRM_PREFIX)) {
-    return null;
-  }
-  const [, market, exchange, ticker, type, operatorValue, value] = String(customId).split("|");
-  const symbol = {
-    ticker,
-    market,
-    exchange: exchange || undefined,
-  };
-  const verifiedSymbol = findSymbol(symbol);
-  if (!verifiedSymbol) {
-    throw new Error("확인된 종목 마스터에서 종목을 찾지 못했습니다.");
-  }
-  const condition = {
-    id: newConditionId(type),
-    type,
-    operator: operatorValue === "gte" ? ">=" : "<=",
-    delete_after_alert: true,
-  };
-  if (condition.type === "price") {
-    condition.target = Number(value);
-  }
-  if (condition.type === "sma_cross") {
-    condition.window = Number.parseInt(value, 10);
-  }
-  return { symbol: verifiedSymbol, condition };
+  return decodeActionId(customId, CONFIRM_PREFIX);
+}
+
+export function encodeSymbolSelectId(symbol, condition) {
+  return encodeActionId(SELECT_PREFIX, symbol, condition);
+}
+
+export function decodeSymbolSelectId(customId) {
+  return decodeActionId(customId, SELECT_PREFIX);
+}
+
+export function isSymbolSelectId(customId) {
+  return String(customId || "").startsWith(SELECT_PREFIX);
 }
 
 export function isCancelId(customId) {
@@ -150,8 +137,30 @@ export function confirmationComponents(symbol, condition) {
   ];
 }
 
+export function symbolSelectionComponents(candidates, condition) {
+  return [
+    {
+      type: 1,
+      components: candidates.slice(0, 5).map((symbol) => ({
+        type: 2,
+        style: 2,
+        label: truncateButtonLabel(`${symbol.name} (${symbol.ticker})`),
+        custom_id: encodeSymbolSelectId(symbol, condition),
+      })),
+    },
+  ];
+}
+
 export function confirmationMessage(symbol, condition) {
   return `아래 조건을 저장할까요?\n\n${formatConditionSummary(symbol, condition)}\n\n저장된 조건은 최초 알림 후 자동 삭제됩니다.`;
+}
+
+export function symbolSelectionMessage(candidates) {
+  const options = candidates
+    .slice(0, 5)
+    .map((symbol, index) => `${index + 1}. ${formatSymbol(symbol)}`)
+    .join("\n");
+  return `종목 후보가 여러 개입니다. 어떤 종목인가요?\n\n${options}`;
 }
 
 export function formatConditionSummary(symbol, condition) {
@@ -162,30 +171,79 @@ export function formatConditionSummary(symbol, condition) {
   return `${stock}: 현재가가 ${condition.window}일 이동평균선 ${operatorText(condition.operator)}일 때`;
 }
 
-function resolveSymbol(stockQuery, marketHint) {
-  const candidates = searchSymbols(stockQuery, marketHint);
-  if (candidates.length === 0) {
-    return failure(`"${stockQuery}"에 해당하는 종목을 찾지 못했습니다.`);
+function resolveSymbol(parsed) {
+  const marketHint = parsed?.market_hint;
+  const tickerHint = String(parsed?.ticker_hint || "").trim();
+  const directTickerCandidates = tickerHint ? exactTickerMatches(tickerHint, marketHint) : [];
+  if (directTickerCandidates.length === 1) {
+    return { ok: true, symbol: directTickerCandidates[0] };
+  }
+  if (directTickerCandidates.length > 1) {
+    return needsSymbolSelection(directTickerCandidates);
   }
 
-  const normalizedQuery = normalizeSearchText(stockQuery);
-  const exact = candidates.filter(
-    (symbol) =>
-      normalizeSearchText(symbol.ticker) === normalizedQuery ||
-      normalizeSearchText(symbol.name) === normalizedQuery,
+  const matches = mergeMatches(
+    stockQueries(parsed).flatMap((query, queryIndex) =>
+      searchSymbolMatches(query, marketHint, 10).map((entry) => ({
+        ...entry,
+        score: entry.score - queryIndex,
+      })),
+    ),
   );
-  if (exact.length === 1) {
-    return { ok: true, symbol: exact[0] };
+
+  if (matches.length === 0) {
+    return failure(`"${stockQueries(parsed)[0]}"에 해당하는 종목을 찾지 못했습니다.`);
   }
-  if (candidates.length === 1) {
-    return { ok: true, symbol: candidates[0] };
+  if (matches.length === 1) {
+    return { ok: true, symbol: matches[0].symbol };
   }
 
-  const options = candidates
-    .slice(0, 5)
-    .map((symbol) => `${symbol.name} (${symbol.ticker}, ${symbol.market}${symbol.exchange ? `/${symbol.exchange}` : ""})`)
-    .join("\n");
-  return failure(`종목 후보가 여러 개입니다. 더 정확히 입력해 주세요.\n\n${options}`);
+  const [first, second] = matches;
+  if (first.score >= 1000 && first.score > second.score && !hasShortLatinQuery(stockQueries(parsed))) {
+    return { ok: true, symbol: first.symbol };
+  }
+  return needsSymbolSelection(matches.slice(0, 5).map((entry) => entry.symbol));
+}
+
+function stockQueries(parsed) {
+  return [
+    parsed?.ticker_hint,
+    parsed?.stock_query,
+    parsed?.company_name_hint,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
+}
+
+function exactTickerMatches(ticker, marketHint) {
+  const normalizedTicker = String(ticker || "").trim().toUpperCase();
+  return searchSymbolMatches(normalizedTicker, marketHint, 10)
+    .map((entry) => entry.symbol)
+    .filter((symbol) => symbol.ticker === normalizedTicker);
+}
+
+function mergeMatches(matches) {
+  const byKey = new Map();
+  matches.forEach((match) => {
+    const key = stockKey(match.symbol);
+    const previous = byKey.get(key);
+    if (!previous || match.score > previous.score) {
+      byKey.set(key, match);
+    }
+  });
+  return [...byKey.values()].sort(
+    (left, right) => right.score - left.score || left.symbol.name.localeCompare(right.symbol.name),
+  );
+}
+
+function needsSymbolSelection(candidates) {
+  return {
+    ok: false,
+    needsSymbolSelection: true,
+    candidates,
+    message: symbolSelectionMessage(candidates),
+  };
 }
 
 function buildCondition(parsed, conditionType, operator) {
@@ -222,6 +280,49 @@ function buildCondition(parsed, conditionType, operator) {
   };
 }
 
+function encodeActionId(prefix, symbol, condition) {
+  const operator = condition.operator === ">=" ? "gte" : "lte";
+  const value = condition.type === "price" ? condition.target : condition.window;
+  return [
+    prefix,
+    symbol.market,
+    symbol.exchange || "",
+    symbol.ticker,
+    condition.type,
+    operator,
+    value,
+  ].join("|");
+}
+
+function decodeActionId(customId, prefix) {
+  if (!String(customId || "").startsWith(prefix)) {
+    return null;
+  }
+  const [, market, exchange, ticker, type, operatorValue, value] = String(customId).split("|");
+  const symbol = {
+    ticker,
+    market,
+    exchange: exchange || undefined,
+  };
+  const verifiedSymbol = findSymbol(symbol);
+  if (!verifiedSymbol) {
+    throw new Error("확인된 종목 마스터에서 종목을 찾지 못했습니다.");
+  }
+  const condition = {
+    id: newConditionId(type),
+    type,
+    operator: operatorValue === "gte" ? ">=" : "<=",
+    delete_after_alert: true,
+  };
+  if (condition.type === "price") {
+    condition.target = Number(value);
+  }
+  if (condition.type === "sma_cross") {
+    condition.window = Number.parseInt(value, 10);
+  }
+  return { symbol: verifiedSymbol, condition };
+}
+
 function failure(message) {
   return { ok: false, message };
 }
@@ -231,13 +332,6 @@ function stockKey(stock) {
     return `${stock.market}:${stock.exchange}:${stock.ticker}`;
   }
   return `${stock.market}:${stock.ticker}`;
-}
-
-function normalizeSearchText(value) {
-  return String(value || "")
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, " ");
 }
 
 function operatorText(operator) {
@@ -252,4 +346,24 @@ function formatPrice(value, market) {
     return `$${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   return String(value);
+}
+
+function formatSymbol(symbol) {
+  const exchange = symbol.exchange ? `/${symbol.exchange}` : "";
+  return `${symbol.name} (${symbol.ticker}, ${symbol.market}${exchange})`;
+}
+
+function truncateButtonLabel(value) {
+  return value.length > 80 ? `${value.slice(0, 77)}...` : value;
+}
+
+function hasShortLatinQuery(queries) {
+  return queries.some((query) => /^[A-Z]{1,2}$/.test(normalizeCompact(query)));
+}
+
+function normalizeCompact(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
 }

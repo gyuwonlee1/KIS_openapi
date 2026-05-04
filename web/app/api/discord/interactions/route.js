@@ -15,9 +15,13 @@ import {
   confirmationComponents,
   confirmationMessage,
   decodeConfirmId,
+  decodeSymbolSelectId,
   formatConditionSummary,
   isCancelId,
+  isSymbolSelectId,
   resolveParsedAlert,
+  symbolSelectionComponents,
+  symbolSelectionMessage,
 } from "@/lib/natural-alert";
 import { fetchPortfolio, savePortfolio } from "@/lib/github";
 
@@ -58,6 +62,10 @@ export async function POST(request) {
     if (isCancelId(customId)) {
       return NextResponse.json(updatedMessage("조건 저장을 취소했습니다."));
     }
+    if (isSymbolSelectId(customId)) {
+      after(async () => handleSymbolSelection(interaction, customId));
+      return NextResponse.json(deferredUpdate());
+    }
     after(async () => handleConfirmation(interaction, customId));
     return NextResponse.json(deferredUpdate());
   }
@@ -70,6 +78,13 @@ async function handleNaturalAlertCommand(interaction, text) {
     const parsed = await parseNaturalAlert(text);
     const resolved = resolveParsedAlert(parsed);
     if (!resolved.ok) {
+      if (resolved.needsSymbolSelection) {
+        await editOriginalInteractionResponse(interaction, {
+          content: symbolSelectionMessage(resolved.candidates),
+          components: symbolSelectionComponents(resolved.candidates, resolved.condition),
+        });
+        return;
+      }
       await editOriginalInteractionResponse(interaction, {
         content: resolved.message,
         components: [],
@@ -83,6 +98,25 @@ async function handleNaturalAlertCommand(interaction, text) {
     });
   } catch (error) {
     await safeEdit(interaction, `조건을 해석하지 못했습니다.\n\n${error.message}`);
+  }
+}
+
+async function handleSymbolSelection(interaction, customId) {
+  try {
+    const decoded = decodeSymbolSelectId(customId);
+    if (!decoded) {
+      await editOriginalInteractionResponse(interaction, {
+        content: "종목 선택 정보를 읽지 못했습니다. 다시 시도해 주세요.",
+        components: [],
+      });
+      return;
+    }
+    await editOriginalInteractionResponse(interaction, {
+      content: confirmationMessage(decoded.symbol, decoded.condition),
+      components: confirmationComponents(decoded.symbol, decoded.condition),
+    });
+  } catch (error) {
+    await safeEdit(interaction, `종목 선택 처리에 실패했습니다.\n\n${error.message}`);
   }
 }
 

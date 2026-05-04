@@ -3,9 +3,12 @@ import assert from "node:assert/strict";
 import {
   applyConditionToPortfolio,
   decodeConfirmId,
+  decodeSymbolSelectId,
   encodeConfirmId,
+  encodeSymbolSelectId,
   formatConditionSummary,
   resolveParsedAlert,
+  symbolSelectionComponents,
 } from "../lib/natural-alert.js";
 
 function test(name, fn) {
@@ -120,4 +123,83 @@ test("formats a Korean confirmation summary", () => {
     formatConditionSummary(resolved.symbol, resolved.condition),
     "삼성전자 (005930): 현재가가 80,000원 이상일 때",
   );
+});
+
+test("uses Korean aliases to resolve US stocks without an exact English name", () => {
+  const resolved = resolveParsedAlert({
+    stock_query: "구글",
+    ticker_hint: "",
+    company_name_hint: "",
+    market_hint: "US",
+    condition_type: "price",
+    operator: "<=",
+    target: 400,
+    window: null,
+    needs_clarification: false,
+    clarification_reason: "",
+  });
+
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.symbol.ticker, "GOOGL");
+});
+
+test("uses Gemini ticker hints only after symbol master verification", () => {
+  const resolved = resolveParsedAlert({
+    stock_query: "애플",
+    ticker_hint: "AAPL",
+    company_name_hint: "Apple",
+    market_hint: "US",
+    condition_type: "sma_cross",
+    operator: "<=",
+    target: null,
+    window: 60,
+    needs_clarification: false,
+    clarification_reason: "",
+  });
+
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.symbol.ticker, "AAPL");
+  assert.equal(resolved.condition.window, 60);
+});
+
+test("returns symbol selection candidates for ambiguous stock names", () => {
+  const resolved = resolveParsedAlert({
+    stock_query: "LG",
+    ticker_hint: "",
+    company_name_hint: "",
+    market_hint: "KR",
+    condition_type: "sma_cross",
+    operator: ">=",
+    target: null,
+    window: 20,
+    needs_clarification: false,
+    clarification_reason: "",
+  });
+
+  assert.equal(resolved.ok, false);
+  assert.equal(resolved.needsSymbolSelection, true);
+  assert.ok(resolved.candidates.length > 1);
+  assert.equal(resolved.condition.type, "sma_cross");
+});
+
+test("encodes symbol selection payloads and converts them into confirmation payloads", () => {
+  const resolved = resolveParsedAlert({
+    stock_query: "LG",
+    ticker_hint: "",
+    company_name_hint: "",
+    market_hint: "KR",
+    condition_type: "sma_cross",
+    operator: ">=",
+    target: null,
+    window: 20,
+    needs_clarification: false,
+    clarification_reason: "",
+  });
+  const customId = encodeSymbolSelectId(resolved.candidates[0], resolved.condition);
+  const decoded = decodeSymbolSelectId(customId);
+  const components = symbolSelectionComponents(resolved.candidates, resolved.condition);
+
+  assert.ok(customId.length <= 100);
+  assert.equal(decoded.condition.window, 20);
+  assert.ok(components[0].components.length <= 5);
 });
