@@ -1,3 +1,20 @@
 {
-  "stocks": []
+  "stocks": [
+    {
+      "name": "Alphabet Inc.",
+      "ticker": "GOOGL",
+      "market": "US",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "price-29d5ec46-1c5b-47a7-8fff-3596629d3d86",
+          "type": "price",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "target": 382
+        }
+      ],
+      "exchange": "NASD"
+    }
+  ]
 }
