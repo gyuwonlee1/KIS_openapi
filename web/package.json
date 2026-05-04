@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node tests/portfolio.test.mjs && node tests/auth.test.mjs"
+    "test": "node tests/portfolio.test.mjs && node tests/auth.test.mjs && node tests/natural-alert.test.mjs && node tests/discord.test.mjs",
+    "discord:register": "node scripts/register-discord-command.mjs"
   },
   "dependencies": {
     "next": "^16.1.6",
