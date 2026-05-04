@@ -20,6 +20,13 @@
           "operator": "<=",
           "delete_after_alert": true,
           "target": 80000
+        },
+        {
+          "id": "sma_cross-f857913f-25ab-4369-bcf0-63928ea28582",
+          "type": "sma_cross",
+          "operator": "<=",
+          "delete_after_alert": true,
+          "window": 20
         }
       ]
     }
