@@ -1,4 +1,4 @@
-import { normalizePortfolio } from "./portfolio";
+import { normalizePortfolio } from "./portfolio.js";
 
 export function githubConfig() {
   const token = process.env.GITHUB_TOKEN;
