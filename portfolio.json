@@ -1,14 +1,6 @@
 {
   "stocks": [
     {
-      "name": "Alphabet Inc.",
-      "ticker": "GOOGL",
-      "market": "US",
-      "enabled": true,
-      "conditions": [],
-      "exchange": "NASD"
-    },
-    {
       "name": "Bloom Energy Corporation",
       "ticker": "BE",
       "market": "US",
