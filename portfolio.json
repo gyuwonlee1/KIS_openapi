@@ -9,28 +9,6 @@
       "exchange": "NASD"
     },
     {
-      "name": "삼성전자",
-      "ticker": "005930",
-      "market": "KR",
-      "enabled": true,
-      "conditions": [
-        {
-          "id": "price-6d10281d-2dfc-4696-8bc6-463070e580c0",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 80000
-        },
-        {
-          "id": "sma_cross-f857913f-25ab-4369-bcf0-63928ea28582",
-          "type": "sma_cross",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "window": 20
-        }
-      ]
-    },
-    {
       "name": "Bloom Energy Corporation",
       "ticker": "BE",
       "market": "US",
