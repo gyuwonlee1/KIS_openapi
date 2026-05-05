@@ -2,17 +2,8 @@ name: KIS Stock Alert Bot
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
-    inputs:
-      market_hours_enabled:
-        description: "Only check stocks during configured market hours"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -57,7 +48,7 @@ jobs:
           PORTFOLIO_PATH: portfolio.json
           STATE_PATH: .cache/kis-alerts/last_alerts.json
           KIS_TOKEN_CACHE_PATH: .cache/kis-alerts/kis_token.json
-          MARKET_HOURS_ENABLED: ${{ github.event_name == 'workflow_dispatch' && inputs.market_hours_enabled || 'true' }}
+          MARKET_HOURS_ENABLED: "false"
         run: python main.py
 
       - name: Commit completed condition removals
