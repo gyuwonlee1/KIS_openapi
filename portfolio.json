@@ -45,6 +45,22 @@
         }
       ],
       "exchange": "NASD"
+    },
+    {
+      "name": "Bloom Energy Corporation",
+      "ticker": "BE",
+      "market": "US",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "sma_cross-54447d43-ce09-4b39-bb5f-03d3569eeada",
+          "type": "sma_cross",
+          "operator": "<=",
+          "delete_after_alert": true,
+          "window": 20
+        }
+      ],
+      "exchange": "NYSE"
     }
   ]
 }
