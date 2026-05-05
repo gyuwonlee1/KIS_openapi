@@ -61,6 +61,21 @@
         }
       ],
       "exchange": "NYSE"
+    },
+    {
+      "name": "한화시스템",
+      "ticker": "272210",
+      "market": "KR",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "sma_cross-d2f3a392-beff-466f-9056-79bed4bf523c",
+          "type": "sma_cross",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "window": 60
+        }
+      ]
     }
   ]
 }
