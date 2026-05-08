@@ -36,7 +36,15 @@
       "ticker": "NVDA",
       "market": "US",
       "enabled": true,
-      "conditions": [],
+      "conditions": [
+        {
+          "id": "price-0b368819-636a-48ae-a86f-9a63b1c49a0f",
+          "type": "price",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "target": 100
+        }
+      ],
       "exchange": "NASD"
     }
   ]
