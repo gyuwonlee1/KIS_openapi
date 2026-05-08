@@ -30,14 +30,6 @@
           "window": 60
         }
       ]
-    },
-    {
-      "name": "NVIDIA Corporation",
-      "ticker": "NVDA",
-      "market": "US",
-      "enabled": true,
-      "conditions": [],
-      "exchange": "NASD"
     }
   ]
 }
