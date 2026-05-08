@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import main
 from kis_alert_bot.config import Settings
+from kis_alert_bot.kis_client import TemporaryKISDataUnavailable
 from main import _evaluate_stock
 from kis_alert_bot.models import Condition, ConditionResult, PriceQuote, Stock
 from kis_alert_bot.state import AlertStateStore
@@ -42,6 +43,18 @@ class FailingNotifier:
 
     def send_error_summary(self, _errors: list[str]) -> None:
         pass
+
+
+class DailyUnavailableClient:
+    def __init__(self) -> None:
+        self.daily_calls = 0
+
+    def get_current_price(self, stock: Stock) -> PriceQuote:
+        return PriceQuote(stock=stock, price=101, raw={})
+
+    def get_daily_closes(self, stock: Stock) -> list[float]:
+        self.daily_calls += 1
+        raise TemporaryKISDataUnavailable("temporary daily price unavailable for Samsung (005930)")
 
 
 class MainEvaluationTests(unittest.TestCase):
@@ -87,6 +100,38 @@ class MainEvaluationTests(unittest.TestCase):
 
         self.assertEqual(alerts, [])
         self.assertEqual(client.current_price_calls, 0)
+
+    def test_temporary_daily_failure_skips_sma_but_keeps_price_conditions(self) -> None:
+        stock = Stock(
+            name="Samsung",
+            ticker="005930",
+            market="KR",
+            conditions=[
+                Condition(
+                    id="sma",
+                    type="sma_cross",
+                    operator=">=",
+                    window=20,
+                    delete_after_alert=True,
+                ),
+                Condition(
+                    id="price",
+                    type="price",
+                    operator=">=",
+                    target=100,
+                    delete_after_alert=True,
+                ),
+            ],
+        )
+        state = AlertStateStore(path="unused")
+        client = DailyUnavailableClient()
+
+        alerts = _evaluate_stock(client, stock, state)
+
+        self.assertEqual(client.daily_calls, 1)
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0].result.condition.id, "price")
+        self.assertNotIn("KR:005930:sma", state.data)
 
     def test_discord_failure_does_not_remove_condition_or_save_state(self) -> None:
         portfolio = {

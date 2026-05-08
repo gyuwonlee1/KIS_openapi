@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from kis_alert_bot.conditions import evaluate_condition
 from kis_alert_bot.config import Settings
 from kis_alert_bot.discord import DiscordNotifier
-from kis_alert_bot.kis_client import KISClient
+from kis_alert_bot.kis_client import KISClient, TemporaryKISDataUnavailable
 from kis_alert_bot.market_hours import is_market_open
 from kis_alert_bot.models import Alert, Stock
 from kis_alert_bot.portfolio import load_portfolio, remove_alerted_conditions
@@ -78,12 +78,20 @@ def _evaluate_stock(client: KISClient, stock: Stock, state: AlertStateStore) -> 
 
     quote = client.get_current_price(stock)
     daily_closes: list[float] | None = None
+    daily_prices_unavailable = False
     now = datetime.now(timezone.utc)
     alerts: list[Alert] = []
 
     for condition in active_conditions:
+        if condition.type == "sma_cross" and daily_prices_unavailable:
+            continue
         if condition.type == "sma_cross" and daily_closes is None:
-            daily_closes = client.get_daily_closes(stock)
+            try:
+                daily_closes = client.get_daily_closes(stock)
+            except TemporaryKISDataUnavailable as exc:
+                print(f"{exc}; skipping SMA conditions for this run")
+                daily_prices_unavailable = True
+                continue
         result = evaluate_condition(
             stock=stock,
             condition=condition,

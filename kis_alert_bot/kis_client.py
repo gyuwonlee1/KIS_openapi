@@ -21,7 +21,9 @@ EXCHANGE_ALIASES = {
     "AMS": "AMS",
 }
 DEFAULT_TOKEN_TTL = timedelta(hours=23)
+DAILY_HISTORY_LOOKBACK_DAYS = 1100
 KST = ZoneInfo("Asia/Seoul")
+NEW_YORK = ZoneInfo("America/New_York")
 TOKEN_PATH = "/oauth2/tokenP"
 
 
@@ -31,6 +33,10 @@ class KISAPIError(RuntimeError):
         self.data = data
         message = data.get("msg1") or data.get("msg_cd") or data
         super().__init__(f"KIS API error for {path}: {message}")
+
+
+class TemporaryKISDataUnavailable(RuntimeError):
+    pass
 
 
 class KISClient:
@@ -94,16 +100,21 @@ class KISClient:
 
     def get_daily_closes(self, stock: Stock) -> list[float]:
         self._ensure_token()
-        if stock.market == "KR":
-            data = self._get_domestic_daily_prices(stock)
-            rows = data.get("output2") or data.get("output") or []
-            closes = [_read_float(row, ["stck_clpr"]) for row in rows if isinstance(row, dict)]
-        elif stock.market == "US":
-            data = self._get_overseas_daily_prices(stock)
-            rows = data.get("output2") or []
-            closes = [_read_float(row, ["clos"]) for row in rows if isinstance(row, dict)]
-        else:
-            raise ValueError(f"unsupported market: {stock.market}")
+        try:
+            if stock.market == "KR":
+                data = self._get_domestic_daily_prices(stock)
+                rows = data.get("output2") or data.get("output") or []
+                closes = [_read_float(row, ["stck_clpr"]) for row in rows if isinstance(row, dict)]
+            elif stock.market == "US":
+                data = self._get_overseas_daily_prices(stock)
+                rows = data.get("output2") or []
+                closes = [_read_float(row, ["clos"]) for row in rows if isinstance(row, dict)]
+            else:
+                raise ValueError(f"unsupported market: {stock.market}")
+        except Exception as exc:
+            if _is_server_error(exc):
+                raise TemporaryKISDataUnavailable(f"temporary daily price unavailable for {stock.name} ({stock.ticker})") from exc
+            raise
 
         closes = [value for value in closes if value > 0]
         closes.reverse()
@@ -134,7 +145,7 @@ class KISClient:
         )
 
     def _get_domestic_daily_prices(self, stock: Stock) -> dict[str, Any]:
-        end_date = datetime.now().strftime("%Y%m%d")
+        start_date, end_date = _daily_date_range(KST)
         return self._request(
             "GET",
             "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice",
@@ -142,7 +153,7 @@ class KISClient:
             params={
                 "FID_COND_MRKT_DIV_CODE": "J",
                 "FID_INPUT_ISCD": stock.ticker,
-                "FID_INPUT_DATE_1": "19000101",
+                "FID_INPUT_DATE_1": start_date,
                 "FID_INPUT_DATE_2": end_date,
                 "FID_PERIOD_DIV_CODE": "D",
                 "FID_ORG_ADJ_PRC": "0",
@@ -150,7 +161,7 @@ class KISClient:
         )
 
     def _get_overseas_daily_prices(self, stock: Stock) -> dict[str, Any]:
-        end_date = datetime.now().strftime("%Y%m%d")
+        _start_date, end_date = _daily_date_range(NEW_YORK)
         return self._request(
             "GET",
             "/uapi/overseas-price/v1/quotations/dailyprice",
@@ -314,6 +325,16 @@ def _read_float(payload: dict[str, Any], keys: list[str]) -> float:
     raise RuntimeError(f"could not read numeric field from keys {keys}: {payload}")
 
 
+def _daily_date_range(
+    market_timezone: ZoneInfo,
+    now: datetime | None = None,
+    lookback_days: int = DAILY_HISTORY_LOOKBACK_DAYS,
+) -> tuple[str, str]:
+    local_now = (now or datetime.now(timezone.utc)).astimezone(market_timezone)
+    start_date = local_now.date() - timedelta(days=lookback_days)
+    return start_date.strftime("%Y%m%d"), local_now.strftime("%Y%m%d")
+
+
 def _app_key_hash(app_key: str) -> str:
     return hashlib.sha256(app_key.encode("utf-8")).hexdigest()
 
@@ -376,3 +397,9 @@ def _is_auth_error(exc: Exception) -> bool:
             )
         )
     return False
+
+
+def _is_server_error(exc: Exception) -> bool:
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
+    return isinstance(status_code, int) and 500 <= status_code < 600

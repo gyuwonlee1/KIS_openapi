@@ -6,7 +6,15 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from kis_alert_bot.kis_client import KISClient, _token_expires_at, normalize_exchange
+from kis_alert_bot.kis_client import (
+    KISClient,
+    KST,
+    NEW_YORK,
+    TemporaryKISDataUnavailable,
+    _daily_date_range,
+    _token_expires_at,
+    normalize_exchange,
+)
 from kis_alert_bot.models import Stock
 
 
@@ -81,6 +89,45 @@ class KISClientTests(unittest.TestCase):
             Stock(name="Apple", ticker="AAPL", market="US", exchange="NASD")
         )
         self.assertEqual(closes, [100.5, 101.5])
+
+    def test_domestic_daily_request_uses_recent_history_window(self) -> None:
+        session = FakeSession(
+            [
+                {"access_token": "token"},
+                {"rt_cd": "0", "output2": [{"stck_clpr": "80000"}]},
+            ]
+        )
+        client = KISClient("key", "secret", "https://example.test", session=session, token_cache_path=None)
+
+        closes = client.get_daily_closes(Stock(name="Samsung", ticker="005930", market="KR"))
+
+        params = session.requests[1]["params"]
+        self.assertEqual(closes, [80000])
+        self.assertNotEqual(params["FID_INPUT_DATE_1"], "19000101")
+        self.assertEqual(len(params["FID_INPUT_DATE_1"]), 8)
+        self.assertEqual(len(params["FID_INPUT_DATE_2"]), 8)
+        self.assertLess(params["FID_INPUT_DATE_1"], params["FID_INPUT_DATE_2"])
+
+    def test_daily_date_ranges_use_market_timezones(self) -> None:
+        now = datetime(2026, 5, 5, 15, 30, tzinfo=timezone.utc)
+
+        _kr_start, kr_end = _daily_date_range(KST, now=now, lookback_days=1)
+        _us_start, us_end = _daily_date_range(NEW_YORK, now=now, lookback_days=1)
+
+        self.assertEqual(kr_end, "20260506")
+        self.assertEqual(us_end, "20260505")
+
+    def test_daily_server_error_is_temporary_data_unavailable(self) -> None:
+        session = FakeSession(
+            [
+                {"access_token": "token"},
+                FakeResponse({}, status_code=500),
+            ]
+        )
+        client = KISClient("key", "secret", "https://example.test", session=session, token_cache_path=None)
+
+        with self.assertRaises(TemporaryKISDataUnavailable):
+            client.get_daily_closes(Stock(name="Samsung", ticker="005930", market="KR"))
 
     def test_issues_token_and_saves_cache_when_cache_is_missing(self) -> None:
         path = temporary_path("token")
