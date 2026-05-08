@@ -38,6 +38,21 @@
       "enabled": true,
       "conditions": [],
       "exchange": "NASD"
+    },
+    {
+      "name": "LG전자",
+      "ticker": "066570",
+      "market": "KR",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "price-1c6af7c1-ebbd-4749-9c9d-9b0f41798fff",
+          "type": "price",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "target": 100000
+        }
+      ]
     }
   ]
 }
