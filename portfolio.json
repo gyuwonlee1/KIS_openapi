@@ -38,13 +38,6 @@
       "enabled": true,
       "conditions": [],
       "exchange": "NASD"
-    },
-    {
-      "name": "LG전자",
-      "ticker": "066570",
-      "market": "KR",
-      "enabled": true,
-      "conditions": []
     }
   ]
 }
