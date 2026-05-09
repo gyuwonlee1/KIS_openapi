@@ -12,6 +12,13 @@
           "operator": "<=",
           "delete_after_alert": true,
           "window": 20
+        },
+        {
+          "id": "price-fb6b2a7d-a9ca-481d-90eb-fe34594ea92f",
+          "type": "price",
+          "operator": "<=",
+          "delete_after_alert": true,
+          "target": 250
         }
       ],
       "exchange": "NYSE"
