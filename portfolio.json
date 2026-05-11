@@ -59,22 +59,7 @@
       "ticker": "277810",
       "market": "KR",
       "enabled": true,
-      "conditions": [
-        {
-          "id": "price-b131598e-80d2-4143-8a39-731d0b23f37f",
-          "type": "price",
-          "operator": ">=",
-          "delete_after_alert": true,
-          "target": 841000
-        },
-        {
-          "id": "price-ba8fa739-1952-4d73-b60d-b2675725ab48",
-          "type": "price",
-          "operator": ">=",
-          "delete_after_alert": true,
-          "target": 845000
-        }
-      ]
+      "conditions": []
     }
   ]
 }
