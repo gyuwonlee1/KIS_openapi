@@ -66,6 +66,13 @@
           "operator": ">=",
           "delete_after_alert": true,
           "target": 841000
+        },
+        {
+          "id": "price-ba8fa739-1952-4d73-b60d-b2675725ab48",
+          "type": "price",
+          "operator": ">=",
+          "delete_after_alert": true,
+          "target": 845000
         }
       ]
     }
