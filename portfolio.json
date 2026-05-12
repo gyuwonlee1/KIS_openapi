@@ -60,6 +60,22 @@
       "market": "KR",
       "enabled": true,
       "conditions": []
+    },
+    {
+      "name": "Western Digital Corporation",
+      "ticker": "WDC",
+      "market": "US",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "price-e4c0334d-01aa-4805-b35e-9cfaf604ae5b",
+          "type": "price",
+          "operator": "<=",
+          "delete_after_alert": true,
+          "target": 1355
+        }
+      ],
+      "exchange": "NASD"
     }
   ]
 }
