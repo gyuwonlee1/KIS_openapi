@@ -76,6 +76,22 @@
         }
       ],
       "exchange": "NASD"
+    },
+    {
+      "name": "Advanced Micro Devices, Inc.",
+      "ticker": "AMD",
+      "market": "US",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "price-86ccb8fc-f9be-45fe-8a0f-9868019f4006",
+          "type": "price",
+          "operator": "<=",
+          "delete_after_alert": true,
+          "target": 405
+        }
+      ],
+      "exchange": "NASD"
     }
   ]
 }
