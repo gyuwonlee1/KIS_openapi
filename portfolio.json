@@ -7,13 +7,6 @@
       "enabled": true,
       "conditions": [
         {
-          "id": "sma_cross-54447d43-ce09-4b39-bb5f-03d3569eeada",
-          "type": "sma_cross",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "window": 20
-        },
-        {
           "id": "price-fb6b2a7d-a9ca-481d-90eb-fe34594ea92f",
           "type": "price",
           "operator": "<=",
