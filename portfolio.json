@@ -36,15 +36,7 @@
       "ticker": "JOBY",
       "market": "US",
       "enabled": true,
-      "conditions": [
-        {
-          "id": "price-f072ef0f-6cc8-47b2-8ba2-3c3648551806",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 10
-        }
-      ],
+      "conditions": [],
       "exchange": "NYSE"
     },
     {
