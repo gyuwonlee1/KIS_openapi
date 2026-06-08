@@ -75,15 +75,7 @@
       "ticker": "012330",
       "market": "KR",
       "enabled": true,
-      "conditions": [
-        {
-          "id": "price-d04478aa-eeb6-46b4-be0b-ed38621eb6b4",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 655000
-        }
-      ]
+      "conditions": []
     },
     {
       "name": "LG전자",
