@@ -5,15 +5,7 @@
       "ticker": "BE",
       "market": "US",
       "enabled": true,
-      "conditions": [
-        {
-          "id": "price-fb6b2a7d-a9ca-481d-90eb-fe34594ea92f",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 250
-        }
-      ],
+      "conditions": [],
       "exchange": "NYSE"
     },
     {
