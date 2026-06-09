@@ -82,15 +82,7 @@
       "ticker": "066570",
       "market": "KR",
       "enabled": true,
-      "conditions": [
-        {
-          "id": "price-bb576887-373c-422d-971f-fd3f5d5d9351",
-          "type": "price",
-          "operator": "<=",
-          "delete_after_alert": true,
-          "target": 250000
-        }
-      ]
+      "conditions": []
     }
   ]
 }
