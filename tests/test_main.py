@@ -57,6 +57,39 @@ class DailyUnavailableClient:
         raise TemporaryKISDataUnavailable("temporary daily price unavailable for Samsung (005930)")
 
 
+class PriceUnavailableClient:
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        pass
+
+    def get_current_price(self, stock: Stock) -> PriceQuote:
+        raise TemporaryKISDataUnavailable("temporary price unavailable for Samsung (005930)")
+
+    def get_daily_closes(self, stock: Stock) -> list[float]:
+        return [90, 95, 100]
+
+
+class ErrorClient:
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        pass
+
+    def get_current_price(self, stock: Stock) -> PriceQuote:
+        raise RuntimeError("boom")
+
+    def get_daily_closes(self, stock: Stock) -> list[float]:
+        return []
+
+
+class OkNotifier:
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        self.error_summaries: list[list[str]] = []
+
+    def send_alerts(self, alerts: list[object]) -> None:
+        pass
+
+    def send_error_summary(self, errors: list[str]) -> None:
+        self.error_summaries.append(list(errors))
+
+
 class MainEvaluationTests(unittest.TestCase):
     def test_completed_conditions_skip_price_fetch(self) -> None:
         stock = Stock(
@@ -132,6 +165,77 @@ class MainEvaluationTests(unittest.TestCase):
         self.assertEqual(len(alerts), 1)
         self.assertEqual(alerts[0].result.condition.id, "price")
         self.assertNotIn("KR:005930:sma", state.data)
+
+    def test_temporary_price_failure_skips_stock(self) -> None:
+        stock = Stock(
+            name="Samsung",
+            ticker="005930",
+            market="KR",
+            conditions=[
+                Condition(
+                    id="target",
+                    type="price",
+                    operator=">=",
+                    target=100,
+                    delete_after_alert=True,
+                )
+            ],
+        )
+        state = AlertStateStore(path="unused")
+        client = PriceUnavailableClient()
+
+        alerts = _evaluate_stock(client, stock, state)
+
+        self.assertEqual(alerts, [])
+        self.assertNotIn("KR:005930:target", state.data)
+
+    def test_transient_stock_error_exits_zero(self) -> None:
+        portfolio = {
+            "stocks": [
+                {
+                    "name": "Samsung",
+                    "ticker": "005930",
+                    "market": "KR",
+                    "conditions": [
+                        {
+                            "id": "target",
+                            "type": "price",
+                            "operator": ">=",
+                            "target": 100,
+                            "delete_after_alert": True,
+                        }
+                    ],
+                }
+            ]
+        }
+        portfolio_path = temporary_path("portfolio")
+        state_path = temporary_path("state")
+        try:
+            portfolio_path.write_text(json.dumps(portfolio), encoding="utf-8")
+            settings = Settings(
+                app_key="key",
+                app_secret="secret",
+                discord_webhook_url="https://example.invalid",
+                portfolio_path=str(portfolio_path),
+                state_path=str(state_path),
+                market_hours_enabled=False,
+            )
+
+            with (
+                patch.object(main.Settings, "from_env", return_value=settings),
+                patch.object(main, "DiscordNotifier", OkNotifier),
+                patch.object(main, "KISClient", ErrorClient),
+            ):
+                exit_code = main.run()
+
+            state_saved = state_path.exists()
+        finally:
+            portfolio_path.unlink(missing_ok=True)
+            state_path.unlink(missing_ok=True)
+
+        # A per-stock API error must NOT fail the run (no red X on Actions).
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(state_saved)
 
     def test_discord_failure_does_not_remove_condition_or_save_state(self) -> None:
         portfolio = {

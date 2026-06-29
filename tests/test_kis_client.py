@@ -5,6 +5,7 @@ import unittest
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from kis_alert_bot.kis_client import (
     KISClient,
@@ -118,16 +119,50 @@ class KISClientTests(unittest.TestCase):
         self.assertEqual(us_end, "20260505")
 
     def test_daily_server_error_is_temporary_data_unavailable(self) -> None:
+        # 500 is retried MAX_RETRIES times before surfacing as unavailable.
         session = FakeSession(
             [
                 {"access_token": "token"},
+                FakeResponse({}, status_code=500),
+                FakeResponse({}, status_code=500),
                 FakeResponse({}, status_code=500),
             ]
         )
         client = KISClient("key", "secret", "https://example.test", session=session, token_cache_path=None)
 
-        with self.assertRaises(TemporaryKISDataUnavailable):
-            client.get_daily_closes(Stock(name="Samsung", ticker="005930", market="KR"))
+        with patch("kis_alert_bot.kis_client.time.sleep"):
+            with self.assertRaises(TemporaryKISDataUnavailable):
+                client.get_daily_closes(Stock(name="Samsung", ticker="005930", market="KR"))
+
+    def test_retryable_error_retries_then_succeeds(self) -> None:
+        session = FakeSession(
+            [
+                {"access_token": "token"},
+                FakeResponse({}, status_code=503),
+                {"rt_cd": "0", "output": {"stck_prpr": "80000"}},
+            ]
+        )
+        client = KISClient("key", "secret", "https://example.test", session=session, token_cache_path=None)
+
+        with patch("kis_alert_bot.kis_client.time.sleep"):
+            quote = client.get_current_price(Stock(name="Samsung", ticker="005930", market="KR"))
+
+        self.assertEqual(quote.price, 80000)
+
+    def test_current_price_transient_becomes_temporary_unavailable(self) -> None:
+        session = FakeSession(
+            [
+                {"access_token": "token"},
+                FakeResponse({}, status_code=500),
+                FakeResponse({}, status_code=500),
+                FakeResponse({}, status_code=500),
+            ]
+        )
+        client = KISClient("key", "secret", "https://example.test", session=session, token_cache_path=None)
+
+        with patch("kis_alert_bot.kis_client.time.sleep"):
+            with self.assertRaises(TemporaryKISDataUnavailable):
+                client.get_current_price(Stock(name="Samsung", ticker="005930", market="KR"))
 
     def test_issues_token_and_saves_cache_when_cache_is_missing(self) -> None:
         path = temporary_path("token")

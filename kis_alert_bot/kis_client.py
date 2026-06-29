@@ -21,7 +21,11 @@ EXCHANGE_ALIASES = {
     "AMS": "AMS",
 }
 DEFAULT_TOKEN_TTL = timedelta(hours=23)
-DAILY_HISTORY_LOOKBACK_DAYS = 1100
+# 760 calendar days ≈ 525 trading days, enough for the max SMA window (480 days)
+# plus the previous-day value needed for cross detection and a safety buffer.
+DAILY_HISTORY_LOOKBACK_DAYS = 760
+MAX_RETRIES = 2
+RETRY_BACKOFF_SECONDS = 0.5
 KST = ZoneInfo("Asia/Seoul")
 NEW_YORK = ZoneInfo("America/New_York")
 TOKEN_PATH = "/oauth2/tokenP"
@@ -88,14 +92,21 @@ class KISClient:
 
     def get_current_price(self, stock: Stock) -> PriceQuote:
         self._ensure_token()
-        if stock.market == "KR":
-            data = self._get_domestic_current_price(stock)
-            price = _read_float(data.get("output", {}), ["stck_prpr"])
-        elif stock.market == "US":
-            data = self._get_overseas_current_price(stock)
-            price = _read_float(data.get("output", {}), ["last"])
-        else:
-            raise ValueError(f"unsupported market: {stock.market}")
+        try:
+            if stock.market == "KR":
+                data = self._get_domestic_current_price(stock)
+                price = _read_float(data.get("output", {}), ["stck_prpr"])
+            elif stock.market == "US":
+                data = self._get_overseas_current_price(stock)
+                price = _read_float(data.get("output", {}), ["last"])
+            else:
+                raise ValueError(f"unsupported market: {stock.market}")
+        except Exception as exc:
+            if _is_retryable(exc):
+                raise TemporaryKISDataUnavailable(
+                    f"temporary price unavailable for {stock.name} ({stock.ticker})"
+                ) from exc
+            raise
         return PriceQuote(stock=stock, price=price, raw=data)
 
     def get_daily_closes(self, stock: Stock) -> list[float]:
@@ -112,7 +123,7 @@ class KISClient:
             else:
                 raise ValueError(f"unsupported market: {stock.market}")
         except Exception as exc:
-            if _is_server_error(exc):
+            if _is_retryable(exc):
                 raise TemporaryKISDataUnavailable(f"temporary daily price unavailable for {stock.name} ({stock.ticker})") from exc
             raise
 
@@ -207,20 +218,31 @@ class KISClient:
         min_interval: float | None = None,
         retry_auth: bool = True,
     ) -> dict[str, Any]:
-        try:
-            return self._request_once(method, path, headers, params, json, min_interval)
-        except Exception as exc:
-            if not retry_auth or path == TOKEN_PATH or not _is_auth_error(exc):
+        attempt = 0
+        auth_retried = False
+        while True:
+            try:
+                return self._request_once(method, path, headers, params, json, min_interval)
+            except Exception as exc:
+                # Auth error: refresh the token once, then retry.
+                if (
+                    retry_auth
+                    and not auth_retried
+                    and path != TOKEN_PATH
+                    and _is_auth_error(exc)
+                ):
+                    auth_retried = True
+                    self._invalidate_token_cache()
+                    self.access_token = None
+                    token = self.issue_token()
+                    headers = _with_bearer(headers, token)
+                    continue
+                # Transient error (429 / 5xx / timeout): back off and retry.
+                if _is_retryable(exc) and attempt < MAX_RETRIES:
+                    attempt += 1
+                    time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+                    continue
                 raise
-            self._invalidate_token_cache()
-            self.access_token = None
-            token = self.issue_token()
-            retry_headers = dict(headers or {})
-            if "authorization" in {key.lower() for key in retry_headers}:
-                for key in list(retry_headers):
-                    if key.lower() == "authorization":
-                        retry_headers[key] = f"Bearer {token}"
-            return self._request_once(method, path, retry_headers or headers, params, json, min_interval)
 
     def _request_once(
         self,
@@ -403,3 +425,29 @@ def _is_server_error(exc: Exception) -> bool:
     response = getattr(exc, "response", None)
     status_code = getattr(response, "status_code", None)
     return isinstance(status_code, int) and 500 <= status_code < 600
+
+
+def _is_retryable(exc: Exception) -> bool:
+    """Transient failures worth retrying: HTTP 429/5xx and network timeouts."""
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if isinstance(status_code, int) and (status_code == 429 or 500 <= status_code < 600):
+        return True
+    # requests.exceptions.Timeout / ConnectionError (matched by name to avoid a
+    # hard requests import and to keep the client testable with fake sessions).
+    return type(exc).__name__ in {
+        "Timeout",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "ConnectionError",
+    }
+
+
+def _with_bearer(headers: dict[str, str] | None, token: str) -> dict[str, str] | None:
+    if not headers:
+        return headers
+    updated = dict(headers)
+    for key in list(updated):
+        if key.lower() == "authorization":
+            updated[key] = f"Bearer {token}"
+    return updated
