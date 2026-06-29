@@ -41,8 +41,10 @@ GitHub Actions Cron
   -> KIS API 현재가/일봉 조회
   -> 조건 평가
   -> Discord 알림
-  -> 알림 완료 조건을 portfolio.json에서 삭제
+  -> 알림 완료 상태를 state/last_alerts.json에 기록(commit)
 ```
+
+봇은 `portfolio.json`을 **읽기 전용**으로만 사용합니다. 1회성 조건의 완료 여부는 `state/last_alerts.json`의 `done` 플래그로 관리하며, 봇은 이 상태 파일만 커밋합니다. 따라서 봇과 웹/Discord 편집이 `portfolio.json`을 두고 충돌하지 않습니다.
 
 ```text
 Vercel 웹앱
@@ -103,12 +105,12 @@ Vercel 웹앱
 조건 필드:
 
 - `type: "price"`: 현재가와 `target` 비교
-- `type: "sma_cross"`: 현재가와 `window`일 단순이동평균선 비교
-- `operator: ">="`: 이상
-- `operator: "<="`: 이하
+- `type: "sma_cross"`: `window`일 단순이동평균선 **돌파(교차)** 감지 (전일 종가와 당일 현재가가 SMA를 기준으로 방향 전환할 때)
+- `operator: ">="`: 상향 돌파 (아래→위)
+- `operator: "<="`: 하향 돌파 (위→아래)
 - `delete_after_alert: true`: 최초 알림 후 조건 완료 처리
 
-웹앱으로 저장하는 조건은 모두 `delete_after_alert: true`로 정규화됩니다. 조건이 실제로 충족되어 Discord 알림이 성공적으로 발송되면 GitHub Actions가 해당 조건을 `portfolio.json`에서 삭제합니다. 같은 종목에 다른 조건이 남아 있으면 종목은 유지되고, 조건이 0개가 된 종목도 관심 종목으로 남을 수 있습니다.
+웹앱으로 저장하는 조건은 모두 `delete_after_alert: true`로 정규화됩니다. 조건이 실제로 충족되어 Discord 알림이 성공적으로 발송되면 GitHub Actions가 해당 조건을 `state/last_alerts.json`에서 `done`으로 표시하고, 이후 실행에서는 평가를 건너뜁니다. `portfolio.json`은 봇이 수정하지 않으므로 완료된 조건도 파일에는 남아 있습니다(웹에서 직접 삭제 가능).
 
 ## GitHub Actions 설정
 
@@ -130,12 +132,14 @@ KIS_BASE_URL
 
 스케줄러는 `.github/workflows/scheduler.yml`에 정의되어 있습니다.
 
-- Cron: `*/15 * * * *`
+- Cron: `7,22,37,52 * * * *`
 - 수동 실행: `workflow_dispatch`
 - 기본 Python: 3.11
-- 상태/토큰 캐시: `.cache/kis-alerts`
+- 장 시간 필터: `MARKET_HOURS_ENABLED=true` (장외에는 API 호출 없이 건너뜀)
+- 알림 상태: `state/last_alerts.json` (git 커밋으로 영속)
+- 토큰 캐시: `.cache/kis-alerts/kis_token.json` (GitHub Actions cache, 커밋 안 함)
 
-KIS access token은 `.cache/kis-alerts/kis_token.json`에 저장되고 GitHub Actions cache로 복원됩니다. 토큰 파일은 repository에 커밋하지 않습니다.
+알림 상태(`state/last_alerts.json`)는 repository에 커밋되어 cache 만료와 무관하게 유지됩니다. KIS access token은 `.cache/kis-alerts/kis_token.json`에 저장되고 GitHub Actions cache로 복원되며, repository에 커밋하지 않습니다.
 
 ## 웹 설정 앱
 
@@ -261,5 +265,5 @@ npm run build
 - 단일 관리자/단일 포트폴리오 기준입니다.
 - 웹앱 저장은 GitHub commit 기반이라 Supabase 같은 DB 저장 방식보다 느립니다.
 - 공휴일, 반장, 임시 휴장 캘린더는 아직 반영하지 않습니다.
-- `sma_cross`는 엄밀한 과거 교차 감지가 아니라 현재가와 SMA 기준값 비교입니다.
+- `sma_cross`는 전일 종가와 당일 현재가가 SMA를 기준으로 방향 전환하는 교차를 감지합니다. 일중 실시간 현재가 기준이라 장중 변동에 따라 같은 봉 안에서도 결과가 바뀔 수 있습니다.
 - 주문 기능은 없고 알림 전용입니다.

@@ -8,11 +8,14 @@ from kis_alert_bot.discord import DiscordNotifier
 from kis_alert_bot.kis_client import KISClient, TemporaryKISDataUnavailable
 from kis_alert_bot.market_hours import is_market_open
 from kis_alert_bot.models import Alert, Stock
-from kis_alert_bot.portfolio import load_portfolio, remove_alerted_conditions
+from kis_alert_bot.portfolio import load_portfolio
 from kis_alert_bot.state import AlertStateStore
 
 
 def run() -> int:
+    # Per-stock errors are transient KIS API failures: reported to Discord but
+    # they must NOT fail the GitHub Actions run. Only a fatal error (config /
+    # portfolio load / token / Discord send) propagates to a non-zero exit code.
     errors: list[str] = []
     alerts: list[Alert] = []
     notifier: DiscordNotifier | None = None
@@ -47,13 +50,15 @@ def run() -> int:
                 errors.append(f"{stock.name} ({stock.ticker}): {exc}")
 
         notifier.send_alerts(alerts)
-        removed_conditions = remove_alerted_conditions(settings.portfolio_path, alerts)
-        if removed_conditions:
-            print(f"Removed {removed_conditions} completed conditions from {settings.portfolio_path}")
+        # Completion is tracked via the state store's `done` flag (persisted across
+        # runs); the bot no longer rewrites/commits portfolio.json. This keeps the
+        # bot read-only on portfolio.json and avoids races with the web/Discord
+        # editors that commit it via the GitHub API.
         state.save()
         notifier.send_error_summary(errors)
-        print(f"Completed run: {len(alerts)} alerts, {len(errors)} errors")
+        print(f"Completed run: {len(alerts)} alerts, {len(errors)} per-stock errors")
     except Exception as exc:
+        # Fatal error: setup, portfolio load, state save, or Discord send failed.
         errors.append(str(exc))
         if notifier is not None:
             notifier.send_error_summary(errors)
@@ -63,7 +68,8 @@ def run() -> int:
                 print(f"- {error}")
         return 1
 
-    return 1 if errors else 0
+    # Transient per-stock errors do not fail the run.
+    return 0
 
 
 def _evaluate_stock(client: KISClient, stock: Stock, state: AlertStateStore) -> list[Alert]:
@@ -76,7 +82,11 @@ def _evaluate_stock(client: KISClient, stock: Stock, state: AlertStateStore) -> 
         print(f"Skipping completed stock conditions: {stock.name} ({stock.ticker})")
         return []
 
-    quote = client.get_current_price(stock)
+    try:
+        quote = client.get_current_price(stock)
+    except TemporaryKISDataUnavailable as exc:
+        print(f"{exc}; skipping stock for this run")
+        return []
     daily_closes: list[float] | None = None
     daily_prices_unavailable = False
     now = datetime.now(timezone.utc)
