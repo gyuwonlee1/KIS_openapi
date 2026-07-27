@@ -1,9 +1,9 @@
 {
   "KR:272210:sma_cross-d2f3a392-beff-466f-9056-79bed4bf523c": {
-    "current_price": 63300.0,
-    "last_evaluated_at": "2026-07-27T01:21:42.710279+00:00",
+    "current_price": 63000.0,
+    "last_evaluated_at": "2026-07-27T04:58:33.280138+00:00",
     "matched": false,
-    "threshold": 91123.33333333333
+    "threshold": 91118.33333333333
   },
   "US:NASD:AMD:price-86ccb8fc-f9be-45fe-8a0f-9868019f4006": {
     "current_price": 520.95,
