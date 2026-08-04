@@ -6,8 +6,8 @@
     "threshold": 85283.33333333333
   },
   "US:NASD:AMD:price-86ccb8fc-f9be-45fe-8a0f-9868019f4006": {
-    "current_price": 519.8,
-    "last_evaluated_at": "2026-08-04T20:02:39.623233+00:00",
+    "current_price": 473.06,
+    "last_evaluated_at": "2026-08-04T21:22:00.745540+00:00",
     "matched": false,
     "threshold": 405.0
   }
